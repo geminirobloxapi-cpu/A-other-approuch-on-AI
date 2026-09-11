@@ -1,0 +1,47 @@
+-- EmotionModule.lua
+local Emotion = {}
+
+Emotion.state = {
+	fear = 0.1,
+	curiosity = 0.5,
+	confidence = 0.3,
+	frustration = 0.0,
+	mood = 0.0
+}
+
+function Emotion.UpdateFromText(text)
+	text = string.lower(text)
+
+	if string.find(text, "danger") or string.find(text, "scared") then
+		Emotion.state.fear += 0.1
+		Emotion.state.confidence -= 0.05
+	end
+
+	if string.find(text, "why") or string.find(text, "how") then
+		Emotion.state.curiosity += 0.05
+	end
+
+	if string.find(text, "bad") or string.find(text, "hate") then
+		Emotion.state.frustration += 0.05
+		Emotion.state.confidence -= 0.05
+	end
+
+	Emotion.state.mood =
+		Emotion.state.confidence + Emotion.state.curiosity
+	- Emotion.state.fear - Emotion.state.frustration
+end
+
+function Emotion.Decay(dt)
+	local s = Emotion.state
+	local decay = dt * 0.05
+
+	s.fear = math.max(0, s.fear - decay)
+	s.curiosity = math.max(0, s.curiosity - decay * 0.5)
+	s.frustration = math.max(0, s.frustration - decay)
+end
+
+function Emotion.GetState()
+	return Emotion.state
+end
+
+return Emotion
