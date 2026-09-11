@@ -1,0 +1,884 @@
+--// NeuronControllerModule.lua
+--// Full Luau neural module for the local Brain system.
+--// Predicts ONE 16-value next-word vector at a time.
+--// The server should generate a sentence autoregressively by feeding
+--// each predicted word back into the next context.
+
+local DataStoreService = game:GetService("DataStoreService")
+
+local Neurons = {}
+
+---------------------------------------------------------------------
+-- CONFIG
+---------------------------------------------------------------------
+
+-- Change this one variable to control both hidden layers.
+local NEURONS = 1200
+
+local INPUT_SIZE = 16
+local HIDDEN_SIZE_1 = NEURONS
+local HIDDEN_SIZE_2 = NEURONS
+local OUTPUT_SIZE = 16
+
+local LEARNING_RATE = 0.001
+
+local WEIGHT_MIN = -0.12
+local WEIGHT_MAX = 0.12
+
+local BIAS_MIN = -0.02
+local BIAS_MAX = 0.02
+
+local GRADIENT_CLAMP = 3
+
+-- Prevent an untrained random network from producing word salad.
+local REQUIRE_TRAINING_BEFORE_PREDICT = true
+
+-- NOTE:
+-- A 1200 x 1200 matrix is far too large to realistically save into one
+-- Roblox DataStore value. Load/Save below therefore stores only metadata
+-- unless you reduce NEURONS substantially (for example 128-256).
+local SAVE_FULL_NETWORK_MAX_NEURONS = 256
+
+local NETWORK_STORE_NAME = "BrainNeuralNetworkV3"
+local NETWORK_KEY = "network"
+
+---------------------------------------------------------------------
+-- DATASTORE
+---------------------------------------------------------------------
+
+local NetworkStore =
+	DataStoreService:GetDataStore(
+		NETWORK_STORE_NAME
+	)
+
+---------------------------------------------------------------------
+-- RANDOM
+---------------------------------------------------------------------
+
+local rng = Random.new()
+
+---------------------------------------------------------------------
+-- NETWORK DATA
+---------------------------------------------------------------------
+
+local weights1 = {}
+local biases1 = {}
+
+local weights2 = {}
+local biases2 = {}
+
+local weights3 = {}
+local biases3 = {}
+
+local lastInput = {}
+local lastHidden1 = {}
+local lastHidden2 = {}
+local lastOutput = {}
+
+local lastLoss = 0
+local trainingSteps = 0
+local dirty = false
+
+---------------------------------------------------------------------
+-- HELPERS
+---------------------------------------------------------------------
+
+local function clampNumber(value, minimum, maximum)
+	return math.max(
+		minimum,
+		math.min(
+			maximum,
+			value
+		)
+	)
+end
+
+---------------------------------------------------------------------
+-- TANH
+---------------------------------------------------------------------
+
+local function tanh(x)
+	x =
+		clampNumber(
+			x,
+			-20,
+			20
+		)
+
+	local e2x =
+		math.exp(
+			2 * x
+		)
+
+	return
+		(e2x - 1)
+		/
+		(e2x + 1)
+end
+
+local function tanhDerivativeFromActivation(a)
+	return 1 - (a * a)
+end
+
+---------------------------------------------------------------------
+-- VECTOR HELPERS
+---------------------------------------------------------------------
+
+local function createVector(size, value)
+	local vector = table.create(size)
+
+	for i = 1, size do
+		vector[i] = value or 0
+	end
+
+	return vector
+end
+
+local function createMatrix(outputCount, inputCount)
+	local matrix = table.create(outputCount)
+
+	for outputIndex = 1, outputCount do
+		local row = table.create(inputCount)
+
+		for inputIndex = 1, inputCount do
+			row[inputIndex] =
+				rng:NextNumber(
+					WEIGHT_MIN,
+					WEIGHT_MAX
+				)
+		end
+
+		matrix[outputIndex] = row
+	end
+
+	return matrix
+end
+
+local function createBiases(size)
+	local biases = table.create(size)
+
+	for i = 1, size do
+		biases[i] =
+			rng:NextNumber(
+				BIAS_MIN,
+				BIAS_MAX
+			)
+	end
+
+	return biases
+end
+
+local function prepareVector(vector, size)
+	local result = createVector(size, 0)
+
+	if typeof(vector) ~= "table" then
+		return result
+	end
+
+	for i = 1, size do
+		local value = vector[i]
+
+		if typeof(value) ~= "number" then
+			value = 0
+		end
+
+		result[i] =
+			clampNumber(
+				value,
+				-1,
+				1
+			)
+	end
+
+	return result
+end
+
+local function zeroOutputVector()
+	return createVector(OUTPUT_SIZE, 0)
+end
+
+---------------------------------------------------------------------
+-- FORWARD LAYER
+---------------------------------------------------------------------
+
+local function forwardLayer(inputVector, weights, biases)
+	local outputVector = table.create(#weights)
+
+	for neuronIndex = 1, #weights do
+		local z = biases[neuronIndex] or 0
+		local neuronWeights = weights[neuronIndex]
+
+		for inputIndex = 1, #inputVector do
+			z +=
+				(inputVector[inputIndex] or 0)
+				*
+				(neuronWeights[inputIndex] or 0)
+		end
+
+		outputVector[neuronIndex] = tanh(z)
+	end
+
+	return outputVector
+end
+
+---------------------------------------------------------------------
+-- INITIALIZE NETWORK
+---------------------------------------------------------------------
+
+local function initializeNetwork()
+	print(
+		"[NEURONS] Creating neural network with",
+		NEURONS,
+		"neurons per hidden layer"
+	)
+
+	weights1 =
+		createMatrix(
+			HIDDEN_SIZE_1,
+			INPUT_SIZE
+		)
+
+	biases1 = createBiases(HIDDEN_SIZE_1)
+
+	weights2 =
+		createMatrix(
+			HIDDEN_SIZE_2,
+			HIDDEN_SIZE_1
+		)
+
+	biases2 = createBiases(HIDDEN_SIZE_2)
+
+	weights3 =
+		createMatrix(
+			OUTPUT_SIZE,
+			HIDDEN_SIZE_2
+		)
+
+	biases3 = createBiases(OUTPUT_SIZE)
+
+	lastInput = createVector(INPUT_SIZE, 0)
+	lastHidden1 = createVector(HIDDEN_SIZE_1, 0)
+	lastHidden2 = createVector(HIDDEN_SIZE_2, 0)
+	lastOutput = createVector(OUTPUT_SIZE, 0)
+
+	lastLoss = 0
+	trainingSteps = 0
+	dirty = false
+
+	print(
+		"[NEURONS] Initialized network:",
+		INPUT_SIZE,
+		"->",
+		HIDDEN_SIZE_1,
+		"->",
+		HIDDEN_SIZE_2,
+		"->",
+		OUTPUT_SIZE
+	)
+end
+
+initializeNetwork()
+
+---------------------------------------------------------------------
+-- FORWARD
+---------------------------------------------------------------------
+
+function Neurons.Forward(inputVector)
+	local input =
+		prepareVector(
+			inputVector,
+			INPUT_SIZE
+		)
+
+	local hidden1 =
+		forwardLayer(
+			input,
+			weights1,
+			biases1
+		)
+
+	local hidden2 =
+		forwardLayer(
+			hidden1,
+			weights2,
+			biases2
+		)
+
+	local output =
+		forwardLayer(
+			hidden2,
+			weights3,
+			biases3
+		)
+
+	lastInput = input
+	lastHidden1 = hidden1
+	lastHidden2 = hidden2
+	lastOutput = output
+
+	return table.clone(output)
+end
+
+---------------------------------------------------------------------
+-- PREDICT
+---------------------------------------------------------------------
+
+function Neurons.Predict(inputVector)
+	-- This is important. An untrained network is just random weights,
+	-- so returning its nearest dictionary words creates nonsense.
+	if REQUIRE_TRAINING_BEFORE_PREDICT
+		and trainingSteps <= 0
+	then
+		return zeroOutputVector()
+	end
+
+	return Neurons.Forward(inputVector)
+end
+
+---------------------------------------------------------------------
+-- LOSS
+---------------------------------------------------------------------
+
+local function calculateLoss(output, target)
+	local total = 0
+
+	for i = 1, OUTPUT_SIZE do
+		local difference =
+			(output[i] or 0)
+		-
+			(target[i] or 0)
+
+		total += difference * difference
+	end
+
+	return total / OUTPUT_SIZE
+end
+
+---------------------------------------------------------------------
+-- TRAIN
+---------------------------------------------------------------------
+
+function Neurons.Train(inputVector, targetVector, learningRate)
+	local rate = tonumber(learningRate) or LEARNING_RATE
+
+	rate =
+		clampNumber(
+			rate,
+			0.000001,
+			0.25
+		)
+
+	local input =
+		prepareVector(
+			inputVector,
+			INPUT_SIZE
+		)
+
+	local target =
+		prepareVector(
+			targetVector,
+			OUTPUT_SIZE
+		)
+
+	local output = Neurons.Forward(input)
+
+	lastLoss =
+		calculateLoss(
+			output,
+			target
+		)
+
+	-----------------------------------------------------------------
+	-- OUTPUT DELTAS
+	-----------------------------------------------------------------
+
+	local outputDelta = createVector(OUTPUT_SIZE, 0)
+
+	for i = 1, OUTPUT_SIZE do
+		local activation = lastOutput[i]
+		local error = activation - target[i]
+
+		local delta =
+			error
+			*
+			tanhDerivativeFromActivation(
+				activation
+			)
+
+		outputDelta[i] =
+			clampNumber(
+				delta,
+				-GRADIENT_CLAMP,
+				GRADIENT_CLAMP
+			)
+	end
+
+	-----------------------------------------------------------------
+	-- HIDDEN 2 DELTAS
+	-----------------------------------------------------------------
+
+	local hidden2Delta = createVector(HIDDEN_SIZE_2, 0)
+
+	for hiddenIndex = 1, HIDDEN_SIZE_2 do
+		local error = 0
+
+		for outputIndex = 1, OUTPUT_SIZE do
+			error +=
+				outputDelta[outputIndex]
+				*
+				weights3[outputIndex][hiddenIndex]
+		end
+
+		local activation = lastHidden2[hiddenIndex]
+
+		local delta =
+			error
+			*
+			tanhDerivativeFromActivation(
+				activation
+			)
+
+		hidden2Delta[hiddenIndex] =
+			clampNumber(
+				delta,
+				-GRADIENT_CLAMP,
+				GRADIENT_CLAMP
+			)
+	end
+
+	-----------------------------------------------------------------
+	-- HIDDEN 1 DELTAS
+	-----------------------------------------------------------------
+
+	local hidden1Delta = createVector(HIDDEN_SIZE_1, 0)
+
+	for hiddenIndex = 1, HIDDEN_SIZE_1 do
+		local error = 0
+
+		for hidden2Index = 1, HIDDEN_SIZE_2 do
+			error +=
+				hidden2Delta[hidden2Index]
+				*
+				weights2[hidden2Index][hiddenIndex]
+		end
+
+		local activation = lastHidden1[hiddenIndex]
+
+		local delta =
+			error
+			*
+			tanhDerivativeFromActivation(
+				activation
+			)
+
+		hidden1Delta[hiddenIndex] =
+			clampNumber(
+				delta,
+				-GRADIENT_CLAMP,
+				GRADIENT_CLAMP
+			)
+	end
+
+	-----------------------------------------------------------------
+	-- UPDATE OUTPUT WEIGHTS
+	-----------------------------------------------------------------
+
+	for outputIndex = 1, OUTPUT_SIZE do
+		local delta = outputDelta[outputIndex]
+
+		for hiddenIndex = 1, HIDDEN_SIZE_2 do
+			weights3[outputIndex][hiddenIndex] -=
+				rate
+				*
+				delta
+				*
+				lastHidden2[hiddenIndex]
+		end
+
+		biases3[outputIndex] -= rate * delta
+	end
+
+	-----------------------------------------------------------------
+	-- UPDATE HIDDEN 2 WEIGHTS
+	-----------------------------------------------------------------
+
+	for hidden2Index = 1, HIDDEN_SIZE_2 do
+		local delta = hidden2Delta[hidden2Index]
+
+		for hidden1Index = 1, HIDDEN_SIZE_1 do
+			weights2[hidden2Index][hidden1Index] -=
+				rate
+				*
+				delta
+				*
+				lastHidden1[hidden1Index]
+		end
+
+		biases2[hidden2Index] -= rate * delta
+	end
+
+	-----------------------------------------------------------------
+	-- UPDATE HIDDEN 1 WEIGHTS
+	-----------------------------------------------------------------
+
+	for hiddenIndex = 1, HIDDEN_SIZE_1 do
+		local delta = hidden1Delta[hiddenIndex]
+
+		for inputIndex = 1, INPUT_SIZE do
+			weights1[hiddenIndex][inputIndex] -=
+				rate
+				*
+				delta
+				*
+				lastInput[inputIndex]
+		end
+
+		biases1[hiddenIndex] -= rate * delta
+	end
+
+	trainingSteps += 1
+	dirty = true
+
+	return lastLoss
+end
+
+---------------------------------------------------------------------
+-- TRAIN MULTIPLE TIMES
+---------------------------------------------------------------------
+
+function Neurons.TrainEpochs(
+	inputVector,
+	targetVector,
+	epochs,
+	learningRate
+)
+	epochs =
+		math.clamp(
+			math.floor(
+				tonumber(epochs)
+				or 1
+			),
+			1,
+			10000
+		)
+
+	local loss = 0
+
+	for _ = 1, epochs do
+		loss =
+			Neurons.Train(
+				inputVector,
+				targetVector,
+				learningRate
+			)
+	end
+
+	return loss
+end
+
+---------------------------------------------------------------------
+-- INJECT INPUT / STEP
+---------------------------------------------------------------------
+
+function Neurons.InjectInput(inputVector)
+	lastInput =
+		prepareVector(
+			inputVector,
+			INPUT_SIZE
+		)
+end
+
+function Neurons.Step(dt)
+	local _ = dt
+
+	if trainingSteps > 0 then
+		Neurons.Forward(lastInput)
+	end
+end
+
+---------------------------------------------------------------------
+-- OUTPUT READERS
+---------------------------------------------------------------------
+
+function Neurons.ReadOutputVector()
+	return table.clone(lastOutput)
+end
+
+function Neurons.ReadOutputPattern()
+	local result = table.create(OUTPUT_SIZE)
+
+	for i = 1, OUTPUT_SIZE do
+		if lastOutput[i] >= 0 then
+			result[i] = 1
+		else
+			result[i] = 0
+		end
+	end
+
+	return result
+end
+
+---------------------------------------------------------------------
+-- SAVE
+---------------------------------------------------------------------
+
+function Neurons.Save()
+	if not dirty then
+		return true
+	end
+
+	-- 1200 hidden neurons means more than a million weights in layer 2.
+	-- Roblox DataStore values cannot realistically hold that whole matrix.
+	if NEURONS > SAVE_FULL_NETWORK_MAX_NEURONS then
+		local ok, err =
+			pcall(function()
+				NetworkStore:UpdateAsync(
+					NETWORK_KEY,
+					function(old)
+						old = typeof(old) == "table" and old or {}
+
+						old.version = 3
+						old.neurons = NEURONS
+						old.trainingSteps = trainingSteps
+						old.lastLoss = lastLoss
+						old.savedAt = os.time()
+						old.weightsSaved = false
+
+						return old
+					end
+				)
+			end)
+
+		if not ok then
+			warn("[NEURONS] Metadata save failed:", err)
+			return false
+		end
+
+		-- Keep dirty true because the actual weights were not persisted.
+		warn(
+			"[NEURONS] NEURONS is",
+			NEURONS,
+			"so full weight persistence is disabled. Use <=",
+			SAVE_FULL_NETWORK_MAX_NEURONS,
+			"if you want weights saved."
+		)
+
+		return true
+	end
+
+	local payload = {
+		version = 3,
+		neurons = NEURONS,
+		inputSize = INPUT_SIZE,
+		hidden1 = HIDDEN_SIZE_1,
+		hidden2 = HIDDEN_SIZE_2,
+		outputSize = OUTPUT_SIZE,
+
+		weights1 = weights1,
+		biases1 = biases1,
+		weights2 = weights2,
+		biases2 = biases2,
+		weights3 = weights3,
+		biases3 = biases3,
+
+		trainingSteps = trainingSteps,
+		lastLoss = lastLoss,
+		weightsSaved = true,
+		savedAt = os.time(),
+	}
+
+	local ok, err =
+		pcall(function()
+			NetworkStore:UpdateAsync(
+				NETWORK_KEY,
+				function()
+					return payload
+				end
+			)
+		end)
+
+	if not ok then
+		warn("[NEURONS] Save failed:", err)
+		return false
+	end
+
+	dirty = false
+
+	print(
+		"[NEURONS] Saved network. Training steps:",
+		trainingSteps
+	)
+
+	return true
+end
+
+---------------------------------------------------------------------
+-- LOAD
+---------------------------------------------------------------------
+
+function Neurons.Load()
+	local ok, data =
+		pcall(function()
+			return NetworkStore:GetAsync(NETWORK_KEY)
+		end)
+
+	if not ok then
+		warn("[NEURONS] Load failed:", data)
+		return false
+	end
+
+	if typeof(data) ~= "table" then
+		print("[NEURONS] No saved V3 network. Starting fresh.")
+		return false
+	end
+
+	if data.neurons ~= NEURONS then
+		print(
+			"[NEURONS] Saved network uses",
+			data.neurons,
+			"neurons but current setting is",
+			NEURONS,
+			"- starting fresh."
+		)
+		return false
+	end
+
+	if data.weightsSaved ~= true then
+		print(
+			"[NEURONS] Saved metadata found, but full weights were not stored. Starting fresh."
+		)
+		return false
+	end
+
+	if data.version ~= 3
+		or data.inputSize ~= INPUT_SIZE
+		or data.hidden1 ~= HIDDEN_SIZE_1
+		or data.hidden2 ~= HIDDEN_SIZE_2
+		or data.outputSize ~= OUTPUT_SIZE
+	then
+		warn("[NEURONS] Saved network version/shape mismatch. Starting fresh.")
+		return false
+	end
+
+	if typeof(data.weights1) ~= "table"
+		or typeof(data.biases1) ~= "table"
+		or typeof(data.weights2) ~= "table"
+		or typeof(data.biases2) ~= "table"
+		or typeof(data.weights3) ~= "table"
+		or typeof(data.biases3) ~= "table"
+	then
+		warn("[NEURONS] Saved network data is incomplete. Starting fresh.")
+		return false
+	end
+
+	weights1 = data.weights1
+	biases1 = data.biases1
+	weights2 = data.weights2
+	biases2 = data.biases2
+	weights3 = data.weights3
+	biases3 = data.biases3
+
+	trainingSteps = tonumber(data.trainingSteps) or 0
+	lastLoss = tonumber(data.lastLoss) or 0
+
+	dirty = false
+
+	print(
+		"[NEURONS] Loaded V3 network. Training steps:",
+		trainingSteps,
+		"last loss:",
+		lastLoss
+	)
+
+	return true
+end
+
+---------------------------------------------------------------------
+-- INFO
+---------------------------------------------------------------------
+
+function Neurons.GetLoss()
+	return lastLoss
+end
+
+function Neurons.GetTrainingSteps()
+	return trainingSteps
+end
+
+function Neurons.IsTrained()
+	return trainingSteps > 0
+end
+
+function Neurons.GetOutputActivations()
+	return table.clone(lastOutput)
+end
+
+function Neurons.GetInputSize()
+	return INPUT_SIZE
+end
+
+function Neurons.GetOutputSize()
+	return OUTPUT_SIZE
+end
+
+function Neurons.GetNeuronCount()
+	return NEURONS
+end
+
+function Neurons.GetTotalNeuronCount()
+	return
+		INPUT_SIZE
+		+
+		HIDDEN_SIZE_1
+		+
+		HIDDEN_SIZE_2
+		+
+		OUTPUT_SIZE
+end
+
+function Neurons.GetNetworkShape()
+	return {
+		INPUT_SIZE,
+		HIDDEN_SIZE_1,
+		HIDDEN_SIZE_2,
+		OUTPUT_SIZE,
+	}
+end
+
+---------------------------------------------------------------------
+-- RESET
+---------------------------------------------------------------------
+
+function Neurons.Reset()
+	initializeNetwork()
+	dirty = true
+
+	print("[NEURONS] Network reset.")
+end
+
+---------------------------------------------------------------------
+-- DEBUG
+---------------------------------------------------------------------
+
+function Neurons.Debug()
+	print("========== NEURAL NETWORK ==========")
+	print("Neuron setting:", NEURONS)
+	print("Total neurons:", Neurons.GetTotalNeuronCount())
+	print(
+		"Shape:",
+		INPUT_SIZE,
+		"->",
+		HIDDEN_SIZE_1,
+		"->",
+		HIDDEN_SIZE_2,
+		"->",
+		OUTPUT_SIZE
+	)
+	print("Training steps:", trainingSteps)
+	print("Last loss:", lastLoss)
+	print("====================================")
+end
+
+---------------------------------------------------------------------
+
+return Neurons
