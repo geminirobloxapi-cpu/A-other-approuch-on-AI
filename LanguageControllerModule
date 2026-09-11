@@ -1,0 +1,550 @@
+--// LanguageControllerModule.lua
+--// Parses user text into semantic information for the local brain.
+--// It DOES NOT generate canned conversational responses.
+
+local Language = {}
+
+local QUESTION_WORDS = {
+	who = true,
+	what = true,
+	when = true,
+	where = true,
+	why = true,
+	how = true,
+	which = true,
+}
+
+local AUXILIARY_WORDS = {
+	["is"] = true,
+	["are"] = true,
+	["was"] = true,
+	["were"] = true,
+	["do"] = true,
+	["does"] = true,
+	["did"] = true,
+	["can"] = true,
+	["could"] = true,
+	["will"] = true,
+	["would"] = true,
+	["should"] = true,
+	["has"] = true,
+	["have"] = true,
+	["had"] = true,
+}
+
+local STOP_WORDS = {
+	["a"] = true,
+	["an"] = true,
+	["the"] = true,
+	["i"] = true,
+	["me"] = true,
+	["my"] = true,
+	["you"] = true,
+	["your"] = true,
+	["we"] = true,
+	["our"] = true,
+	["they"] = true,
+	["their"] = true,
+	["and"] = true,
+	["or"] = true,
+	["but"] = true,
+	["to"] = true,
+	["of"] = true,
+	["for"] = true,
+	["from"] = true,
+	["with"] = true,
+	["in"] = true,
+	["on"] = true,
+	["at"] = true,
+	["by"] = true,
+	["about"] = true,
+	["please"] = true,
+}
+
+local GREETINGS = {
+	hello = true,
+	hi = true,
+	hey = true,
+	yo = true,
+	hiya = true,
+}
+
+local RELATION_PATTERNS = {
+	{
+		relation = "means",
+		pattern = "^%s*(.-)%s+means%s+(.+)%s*$",
+	},
+	{
+		relation = "is_a",
+		pattern = "^%s*(.-)%s+is%s+an?%s+(.+)%s*$",
+	},
+	{
+		relation = "has",
+		pattern = "^%s*(.-)%s+has%s+(.+)%s*$",
+	},
+	{
+		relation = "can_do",
+		pattern = "^%s*(.-)%s+can%s+(.+)%s*$",
+	},
+	{
+		relation = "likes",
+		pattern = "^%s*(.-)%s+likes%s+(.+)%s*$",
+	},
+	{
+		relation = "part_of",
+		pattern = "^%s*(.-)%s+is%s+part%s+of%s+(.+)%s*$",
+	},
+	{
+		relation = "used_for",
+		pattern = "^%s*(.-)%s+is%s+used%s+for%s+(.+)%s*$",
+	},
+	{
+		relation = "located_in",
+		pattern = "^%s*(.-)%s+is%s+located%s+in%s+(.+)%s*$",
+	},
+	{
+		relation = "causes",
+		pattern = "^%s*(.-)%s+causes%s+(.+)%s*$",
+	},
+}
+
+local function trim(text)
+	text = tostring(text or "")
+	text = string.gsub(text, "^%s+", "")
+	text = string.gsub(text, "%s+$", "")
+	return text
+end
+
+function Language.NormalizeText(text)
+	text = string.lower(tostring(text or ""))
+	text = string.gsub(text, "[%c]", " ")
+	text = string.gsub(text, "%s+", " ")
+	return trim(text)
+end
+
+function Language.NormalizeWord(word)
+	word = Language.NormalizeText(word)
+	word = string.gsub(word, "^[%p]+", "")
+	word = string.gsub(word, "[%p]+$", "")
+	return trim(word)
+end
+
+function Language.Tokenize(text)
+	local normalized = Language.NormalizeText(text)
+	local words = {}
+
+	for rawWord in string.gmatch(normalized, "%S+") do
+		local word = Language.NormalizeWord(rawWord)
+		if word ~= "" then
+			table.insert(words, word)
+		end
+	end
+
+	return words
+end
+
+function Language.ContentWords(textOrTokens)
+	local tokens
+
+	if typeof(textOrTokens) == "table" then
+		tokens = textOrTokens
+	else
+		tokens = Language.Tokenize(textOrTokens)
+	end
+
+	local result = {}
+	local used = {}
+
+	for _, word in ipairs(tokens) do
+		word = Language.NormalizeWord(word)
+
+		if word ~= ""
+			and not STOP_WORDS[word]
+			and not QUESTION_WORDS[word]
+			and not AUXILIARY_WORDS[word]
+			and not tonumber(word)
+			and not used[word]
+		then
+			used[word] = true
+			table.insert(result, word)
+		end
+	end
+
+	return result
+end
+
+local function removeLeadingArticle(text)
+	text = trim(text)
+	text = string.gsub(text, "^an%s+", "")
+	text = string.gsub(text, "^a%s+", "")
+	text = string.gsub(text, "^the%s+", "")
+	return trim(text)
+end
+
+local function cleanTarget(text)
+	text = trim(text)
+	text = string.gsub(text, "[%?%!%.]+$", "")
+	return trim(text)
+end
+
+local function splitTargets(text)
+	text = cleanTarget(text)
+	text = string.gsub(text, "%s+and%s+", ",")
+
+	local targets = {}
+	local used = {}
+
+	for part in string.gmatch(text, "[^,]+") do
+		local target = Language.NormalizeWord(part)
+
+		if target ~= "" and not used[target] then
+			used[target] = true
+			table.insert(targets, target)
+		end
+	end
+
+	return targets
+end
+
+function Language.ExtractFact(text)
+	local lower = Language.NormalizeText(text)
+
+	-- Check the more specific "part of / used for / located in" forms first.
+	local ordered = {
+		RELATION_PATTERNS[6],
+		RELATION_PATTERNS[7],
+		RELATION_PATTERNS[8],
+		RELATION_PATTERNS[1],
+		RELATION_PATTERNS[2],
+		RELATION_PATTERNS[3],
+		RELATION_PATTERNS[4],
+		RELATION_PATTERNS[5],
+		RELATION_PATTERNS[9],
+	}
+
+	for _, info in ipairs(ordered) do
+		local subject, targetText = string.match(lower, info.pattern)
+
+		if subject and targetText then
+			subject = removeLeadingArticle(subject)
+			subject = Language.NormalizeWord(subject)
+
+			local targets = splitTargets(targetText)
+
+			if subject ~= "" and #targets > 0 then
+				return {
+					subject = subject,
+					relation = info.relation,
+					targets = targets,
+				}
+			end
+		end
+	end
+
+	return nil
+end
+
+local function parseMeaningQuestion(lower)
+	local subject =
+		string.match(
+			lower,
+			"^%s*what%s+does%s+(.+)%s+mean[%?%!%.]*$"
+		)
+
+	if not subject then
+		subject =
+			string.match(
+				lower,
+				"^%s*what%s+is%s+the%s+meaning%s+of%s+(.+)[%?%!%.]*$"
+			)
+	end
+
+	if subject then
+		return Language.NormalizeWord(subject)
+	end
+
+	return nil
+end
+
+local function parseWhatIs(lower)
+	local subject =
+		string.match(
+			lower,
+			"^%s*what%s+is%s+an?%s+(.+)[%?%!%.]*$"
+		)
+
+	if not subject then
+		subject =
+			string.match(
+				lower,
+				"^%s*what%s+is%s+(.+)[%?%!%.]*$"
+			)
+	end
+
+	if subject then
+		subject = removeLeadingArticle(subject)
+		return Language.NormalizeWord(subject)
+	end
+
+	return nil
+end
+
+local function parseWhoIs(lower)
+	local subject =
+		string.match(
+			lower,
+			"^%s*who%s+is%s+(.+)[%?%!%.]*$"
+		)
+
+	if subject then
+		return Language.NormalizeWord(subject)
+	end
+
+	return nil
+end
+
+local function parseWhereIs(lower)
+	local subject =
+		string.match(
+			lower,
+			"^%s*where%s+is%s+(.+)[%?%!%.]*$"
+		)
+
+	if subject then
+		return Language.NormalizeWord(subject)
+	end
+
+	return nil
+end
+
+local function looksLikeMath(lower)
+	if string.match(lower, "%d%s*[%+%-%*/%%%^xX]%s*%d") then
+		return true
+	end
+
+	if string.find(lower, " plus ", 1, true)
+		or string.find(lower, " minus ", 1, true)
+		or string.find(lower, " times ", 1, true)
+		or string.find(lower, " multiplied ", 1, true)
+		or string.find(lower, " divided ", 1, true)
+		or string.find(lower, " calculate ", 1, true)
+		or string.match(lower, "^calculate%s+")
+		or string.find(lower, " solve ", 1, true)
+		or string.match(lower, "^solve%s+")
+	then
+		return true
+	end
+
+	return false
+end
+
+function Language.Parse(text)
+	local normalized = Language.NormalizeText(text)
+	local tokens = Language.Tokenize(normalized)
+	local contentWords = Language.ContentWords(tokens)
+
+	local result = {
+		raw = tostring(text or ""),
+		normalized = normalized,
+		tokens = tokens,
+		contentWords = contentWords,
+
+		intent = "statement",
+		questionType = nil,
+		subject = nil,
+		relation = nil,
+		targets = nil,
+		topic = contentWords[1],
+		isQuestion = false,
+		isGreeting = false,
+		isTeaching = false,
+		isMath = false,
+	}
+
+	if normalized == "" then
+		result.intent = "empty"
+		return result
+	end
+
+	result.isMath = looksLikeMath(normalized)
+
+	if result.isMath then
+		result.intent = "math"
+		return result
+	end
+
+	local fact = Language.ExtractFact(normalized)
+
+	if fact then
+		result.intent = "teaching"
+		result.isTeaching = true
+		result.subject = fact.subject
+		result.relation = fact.relation
+		result.targets = fact.targets
+		result.topic = fact.subject
+		return result
+	end
+
+	local first = tokens[1]
+
+	-- Greetings are recognized from the first token.
+	if first and GREETINGS[first] then
+		result.intent = "greeting"
+		result.isGreeting = true
+		result.topic = first
+		return result
+	end
+
+	local meaningSubject = parseMeaningQuestion(normalized)
+
+	if meaningSubject then
+		result.intent = "question"
+		result.isQuestion = true
+		result.questionType = "meaning"
+		result.subject = meaningSubject
+		result.relation = "means"
+		result.topic = meaningSubject
+		return result
+	end
+
+	local whatSubject = parseWhatIs(normalized)
+
+	if whatSubject then
+		result.intent = "question"
+		result.isQuestion = true
+		result.questionType = "what"
+		result.subject = whatSubject
+		result.relation = "is_a"
+		result.topic = whatSubject
+		return result
+	end
+
+	local whoSubject = parseWhoIs(normalized)
+
+	if whoSubject then
+		result.intent = "question"
+		result.isQuestion = true
+		result.questionType = "who"
+		result.subject = whoSubject
+		result.topic = whoSubject
+		return result
+	end
+
+	local whereSubject = parseWhereIs(normalized)
+
+	if whereSubject then
+		result.intent = "question"
+		result.isQuestion = true
+		result.questionType = "where"
+		result.subject = whereSubject
+		result.relation = "located_in"
+		result.topic = whereSubject
+		return result
+	end
+
+	if first and QUESTION_WORDS[first] then
+		result.intent = "question"
+		result.isQuestion = true
+		result.questionType = first
+		result.subject = contentWords[1]
+		result.topic = result.subject
+		return result
+	end
+
+	-- Questions often begin with an auxiliary verb and may not contain a ?
+	-- Example: "do you know what youtube is".
+	if first and AUXILIARY_WORDS[first] then
+		result.intent = "question"
+		result.isQuestion = true
+		result.questionType = "general"
+
+		local embeddedWhat = string.match(normalized, "^do%s+you%s+know%s+what%s+(.+)%s+is%s*$")
+		local embeddedWho = string.match(normalized, "^do%s+you%s+know%s+who%s+(.+)%s+is%s*$")
+
+		if embeddedWhat then
+			result.questionType = "what"
+			result.subject = Language.NormalizeText(embeddedWhat)
+			result.relation = "is_a"
+		elseif embeddedWho then
+			result.questionType = "who"
+			result.subject = Language.NormalizeText(embeddedWho)
+		else
+			result.subject = contentWords[1]
+		end
+
+		result.topic = result.subject
+		return result
+	end
+
+	if string.sub(normalized, -1) == "?" then
+		result.intent = "question"
+		result.isQuestion = true
+		result.questionType = "general"
+		result.subject = contentWords[1]
+		result.topic = result.subject
+	end
+
+	return result
+end
+
+function Language.ExtractSearchTerm(parsedOrText)
+	local parsed =
+		typeof(parsedOrText) == "table"
+		and parsedOrText
+		or Language.Parse(parsedOrText)
+
+	if parsed.subject and parsed.subject ~= "" then
+		return parsed.subject
+	end
+
+	if parsed.contentWords and #parsed.contentWords > 0 then
+		return table.concat(parsed.contentWords, " ")
+	end
+
+	return parsed.normalized or ""
+end
+
+-- Semantic tags are INPUT FEATURES for the local neural network.
+-- They are not final responses.
+function Language.BuildSemanticContext(parsedOrText)
+	local parsed =
+		typeof(parsedOrText) == "table"
+		and parsedOrText
+		or Language.Parse(parsedOrText)
+
+	local pieces = {}
+
+	local function add(value)
+		if value and tostring(value) ~= "" then
+			table.insert(pieces, tostring(value))
+		end
+	end
+
+	add("intent_" .. tostring(parsed.intent or "unknown"))
+
+	if parsed.questionType then
+		add("question_" .. parsed.questionType)
+	end
+
+	if parsed.subject then
+		add("subject_" .. string.gsub(parsed.subject, "%s+", "_"))
+	end
+
+	if parsed.relation then
+		add("relation_" .. parsed.relation)
+	end
+
+	if parsed.topic then
+		add("topic_" .. string.gsub(parsed.topic, "%s+", "_"))
+	end
+
+	if parsed.targets then
+		for _, target in ipairs(parsed.targets) do
+			add("target_" .. string.gsub(target, "%s+", "_"))
+		end
+	end
+
+	return table.concat(pieces, " ")
+end
+
+return Language
