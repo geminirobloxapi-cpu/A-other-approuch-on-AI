@@ -82,8 +82,7 @@ local SAVE_INTERVAL = 30
 -- GEMINI CONFIG
 ---------------------------------------------------------------------
 
-local GEMINI_ENABLED = true
-
+local GEMINI_ENABLED = false
 local GEMINI_MODEL =
 	"gemini-3.6-flash"
 
@@ -1791,14 +1790,20 @@ local function generateNeuralResponse(
 	local _ = wmState
 
 	-- A brand-new random network should NOT talk.
-	if Neurons.IsTrained
-		and not Neurons.IsTrained()
-	then
-		print(
-			"[NEURAL RESPONSE] Network has not been trained yet."
-		)
-		return nil
-	end
+	-- Allow prediction even if the network has not been trained yet.
+	-- Warning: an untrained network may output random words.
+
+--[[
+if Neurons.IsTrained
+	and not Neurons.IsTrained()
+then
+	print(
+		"[NEURAL RESPONSE] Network has not been trained yet."
+	)
+
+	return ""
+end
+]]
 
 	local context =
 		cleanText(
