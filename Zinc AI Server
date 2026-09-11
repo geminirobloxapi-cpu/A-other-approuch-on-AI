@@ -1,0 +1,3966 @@
+--// BrainController.server.lua
+--// Local Brain + Optional Gemini Teacher + Internet Research
+--// Gemini/internet ASSIST the brain. They do not replace local learning.
+
+---------------------------------------------------------------------
+-- SERVICES
+---------------------------------------------------------------------
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
+local HttpService = game:GetService("HttpService")
+
+---------------------------------------------------------------------
+-- MODULES
+---------------------------------------------------------------------
+
+local Emotion =
+	require(
+		script:WaitForChild(
+			"EmotionControllerModule"
+		)
+	)
+
+local WorkingMemory =
+	require(
+		script:WaitForChild(
+			"WorkMemoryControllerModule"
+		)
+	)
+
+local Memory =
+	require(
+		script:WaitForChild(
+			"MemoryControllerModule"
+		)
+	)
+
+local Neurons =
+	require(
+		script:WaitForChild(
+			"NeuronControllerModule"
+		)
+	)
+
+local Dictionary =
+	require(
+		script:WaitForChild(
+			"CoreMemoryControllerModule"
+		)
+	)
+
+local Knowledge =
+	require(
+		script:WaitForChild(
+			"KnowledgeControllerModule"
+		)
+	)
+
+local Language =
+	require(
+		script:WaitForChild(
+			"LanguageControllerModule"
+		)
+	)
+
+local Thinking =
+	require(
+		script:WaitForChild(
+			"ThinkingControllerModule"
+		)
+	)
+
+---------------------------------------------------------------------
+-- CONFIG
+---------------------------------------------------------------------
+
+local MAX_MESSAGE_LENGTH = 500
+local SAVE_INTERVAL = 30
+
+---------------------------------------------------------------------
+-- GEMINI CONFIG
+---------------------------------------------------------------------
+
+local GEMINI_ENABLED = true
+
+local GEMINI_MODEL =
+	"gemini-3.6-flash"
+
+local GEMINI_API_BASE =
+	"https://generativelanguage.googleapis.com/v1/models/"
+
+-- Maximum requests per teacher cycle.
+local MAX_GEMINI_REQUESTS = 3
+
+local GeminiLocked = false
+local GeminiUnlockTime = 0
+
+---------------------------------------------------------------------
+-- INTERNET CONFIG
+---------------------------------------------------------------------
+
+local INTERNET_ENABLED = true
+
+local WIKIPEDIA_SEARCH_URL =
+	"https://en.wikipedia.org/w/rest.php/v1/search/page"
+
+local WIKIPEDIA_SUMMARY_URL =
+	"https://en.wikipedia.org/api/rest_v1/page/summary/"
+
+---------------------------------------------------------------------
+-- API KEY
+--
+-- Put this in:
+--
+-- ServerStorage
+--   GeminiAPIKey   <-- StringValue
+--
+-- Gemini is OPTIONAL.
+-- The local brain still works without the key.
+---------------------------------------------------------------------
+
+local function getGeminiAPIKey()
+	
+	return ""
+end
+
+---------------------------------------------------------------------
+-- STOP WORDS
+---------------------------------------------------------------------
+
+local LEARNING_STOP_WORDS = {
+
+	["a"] = true,
+	["an"] = true,
+	["the"] = true,
+
+	["what"] = true,
+	["whats"] = true,
+	["what's"] = true,
+
+	["who"] = true,
+	["where"] = true,
+	["when"] = true,
+	["why"] = true,
+	["how"] = true,
+
+	["is"] = true,
+	["are"] = true,
+	["was"] = true,
+	["were"] = true,
+
+	["do"] = true,
+	["does"] = true,
+	["did"] = true,
+
+	["can"] = true,
+	["could"] = true,
+	["would"] = true,
+	["should"] = true,
+	["will"] = true,
+
+	["i"] = true,
+	["me"] = true,
+	["my"] = true,
+
+	["you"] = true,
+	["your"] = true,
+
+	["we"] = true,
+	["our"] = true,
+
+	["they"] = true,
+	["their"] = true,
+
+	["and"] = true,
+	["or"] = true,
+	["but"] = true,
+
+	["to"] = true,
+	["of"] = true,
+	["for"] = true,
+	["from"] = true,
+	["with"] = true,
+	["in"] = true,
+	["on"] = true,
+
+	["means"] = true,
+	["mean"] = true,
+	["meaning"] = true,
+
+	["equals"] = true,
+	["equal"] = true,
+
+	["basically"] = true,
+	["basicly"] = true,
+
+	["add"] = true,
+	["plus"] = true,
+
+	["minus"] = true,
+	["subtract"] = true,
+
+	["multiply"] = true,
+	["multiplied"] = true,
+	["times"] = true,
+
+	["divide"] = true,
+	["divided"] = true,
+
+	["calculate"] = true,
+	["solve"] = true
+}
+
+---------------------------------------------------------------------
+-- REMOTE
+---------------------------------------------------------------------
+
+local Remote =
+	ReplicatedStorage:FindFirstChild(
+		"BrainRemote"
+	)
+
+if Remote
+	and not Remote:IsA(
+		"RemoteFunction"
+	)
+then
+
+	Remote:Destroy()
+	Remote = nil
+end
+
+if not Remote then
+
+	Remote =
+		Instance.new(
+			"RemoteFunction"
+		)
+
+	Remote.Name =
+		"BrainRemote"
+
+	Remote.Parent =
+		ReplicatedStorage
+end
+
+---------------------------------------------------------------------
+-- STATE
+---------------------------------------------------------------------
+
+local playerBusy = {}
+local lastSave = 0
+
+---------------------------------------------------------------------
+-- SAFE CALL
+---------------------------------------------------------------------
+
+local function safeCall(
+	name,
+	callback,
+	...
+)
+
+	if typeof(callback)
+		~= "function"
+	then
+
+		return nil
+	end
+
+	local args = {...}
+
+	local ok, result =
+		pcall(
+			function()
+
+				return
+				callback(
+					table.unpack(
+						args
+					)
+				)
+
+			end
+		)
+
+	if not ok then
+
+		warn(
+			"[BRAIN]",
+			name,
+			"failed:",
+			result
+		)
+
+		return nil
+	end
+
+	return result
+end
+
+---------------------------------------------------------------------
+-- CLEAN TEXT
+---------------------------------------------------------------------
+
+local function cleanText(text)
+
+	if typeof(text)
+		~= "string"
+	then
+
+		return ""
+	end
+
+	text =
+		string.gsub(
+			text,
+			"[%c]",
+			" "
+		)
+
+	text =
+		string.gsub(
+			text,
+			"%s+",
+			" "
+		)
+
+	text =
+		string.gsub(
+			text,
+			"^%s+",
+			""
+		)
+
+	text =
+		string.gsub(
+			text,
+			"%s+$",
+			""
+		)
+
+	if #text > MAX_MESSAGE_LENGTH then
+
+		text =
+			string.sub(
+				text,
+				1,
+				MAX_MESSAGE_LENGTH
+			)
+
+	end
+
+	return text
+end
+
+---------------------------------------------------------------------
+-- NORMALIZE WORD
+---------------------------------------------------------------------
+
+local function normalizeWord(word)
+
+	word =
+		string.lower(
+			tostring(
+				word or ""
+			)
+		)
+
+	word =
+		string.gsub(
+			word,
+			"^%s+",
+			""
+		)
+
+	word =
+		string.gsub(
+			word,
+			"%s+$",
+			""
+		)
+
+	word =
+		string.gsub(
+			word,
+			"^[%p]+",
+			""
+		)
+
+	word =
+		string.gsub(
+			word,
+			"[%p]+$",
+			""
+		)
+
+	return word
+end
+
+---------------------------------------------------------------------
+-- CAPITALIZE
+---------------------------------------------------------------------
+
+local function capitalize(text)
+
+	text =
+		tostring(
+			text or ""
+		)
+
+	if text == "" then
+		return ""
+	end
+
+	return
+		string.upper(
+			string.sub(
+				text,
+				1,
+				1
+			)
+		)
+		..
+		string.sub(
+			text,
+			2
+		)
+end
+
+---------------------------------------------------------------------
+-- ARTICLE
+--
+-- animal -> an animal
+-- dog -> a dog
+---------------------------------------------------------------------
+
+local function addArticle(word)
+
+	word =
+		tostring(
+			word or ""
+		)
+
+	local first =
+		string.lower(
+			string.sub(
+				word,
+				1,
+				1
+			)
+		)
+
+	if first == "a"
+		or first == "e"
+		or first == "i"
+		or first == "o"
+		or first == "u"
+	then
+
+		return
+			"an "
+			..
+			word
+	end
+
+	return
+		"a "
+		..
+		word
+end
+
+---------------------------------------------------------------------
+-- SAVE
+---------------------------------------------------------------------
+
+local function saveBrain(force)
+
+	local now =
+		os.time()
+
+	if not force
+		and now - lastSave
+		< SAVE_INTERVAL
+	then
+
+		return
+	end
+
+	lastSave = now
+
+	task.spawn(
+		function()
+
+			safeCall(
+				"Memory.SavePatterns",
+				Memory.SavePatterns
+			)
+
+			safeCall(
+				"Dictionary.Save",
+				Dictionary.Save
+			)
+
+			if Neurons.Save then
+
+				safeCall(
+					"Neurons.Save",
+					Neurons.Save
+				)
+
+			end
+
+		end
+	)
+end
+
+---------------------------------------------------------------------
+-- LOAD
+---------------------------------------------------------------------
+
+print(
+	"[BRAIN] Loading..."
+)
+
+safeCall(
+	"Memory.LoadPatterns",
+	Memory.LoadPatterns
+)
+
+safeCall(
+	"Dictionary.Load",
+	Dictionary.Load
+)
+
+if Neurons.Load then
+
+	safeCall(
+		"Neurons.Load",
+		Neurons.Load
+	)
+
+end
+
+print(
+	"[BRAIN] Ready."
+)
+
+---------------------------------------------------------------------
+-- NUMBER FORMAT
+---------------------------------------------------------------------
+
+local function formatNumber(value)
+
+	if math.abs(
+		value - math.floor(value)
+		) < 0.0000001
+	then
+
+		return
+			tostring(
+				math.floor(value)
+			)
+	end
+
+	local text =
+		string.format(
+			"%.6f",
+			value
+		)
+
+	text =
+		string.gsub(
+			text,
+			"0+$",
+			""
+		)
+
+	text =
+		string.gsub(
+			text,
+			"%.$",
+			""
+		)
+
+	return text
+end
+
+---------------------------------------------------------------------
+-- CALCULATE
+---------------------------------------------------------------------
+
+local function calculateExpression(
+	a,
+	operator,
+	b
+)
+
+	if operator == "+" then
+
+		return a + b
+
+	elseif operator == "-" then
+
+		return a - b
+
+	elseif operator == "*" then
+
+		return a * b
+
+	elseif operator == "/" then
+
+		if b == 0 then
+			return nil
+		end
+
+		return a / b
+
+	elseif operator == "%" then
+
+		if b == 0 then
+			return nil
+		end
+
+		return a % b
+
+	elseif operator == "^" then
+
+		return a ^ b
+	end
+
+	return nil
+end
+
+---------------------------------------------------------------------
+-- NORMALIZE MATH
+---------------------------------------------------------------------
+
+local function normalizeMathText(text)
+
+	local lower =
+		string.lower(
+			tostring(
+				text or ""
+			)
+		)
+
+	-------------------------------------------------------------
+	-- 2x2 -> 2 * 2
+	-------------------------------------------------------------
+
+	lower =
+		string.gsub(
+			lower,
+			"(%d)%s*[xX]%s*(%d)",
+			"%1 * %2"
+		)
+
+	-------------------------------------------------------------
+	-- QUESTION WORDING
+	-------------------------------------------------------------
+
+	lower =
+		string.gsub(
+			lower,
+			"what%s+is",
+			" "
+		)
+
+	lower =
+		string.gsub(
+			lower,
+			"what's",
+			" "
+		)
+
+	lower =
+		string.gsub(
+			lower,
+			"whats",
+			" "
+		)
+
+	lower =
+		string.gsub(
+			lower,
+			"calculate",
+			" "
+		)
+
+	lower =
+		string.gsub(
+			lower,
+			"solve",
+			" "
+		)
+
+	-------------------------------------------------------------
+	-- OPERATORS
+	-------------------------------------------------------------
+
+	lower =
+		string.gsub(
+			lower,
+			"%s+plus%s+",
+			" + "
+		)
+
+	lower =
+		string.gsub(
+			lower,
+			"%s+add%s+",
+			" + "
+		)
+
+	lower =
+		string.gsub(
+			lower,
+			"%s+minus%s+",
+			" - "
+		)
+
+	lower =
+		string.gsub(
+			lower,
+			"%s+subtract%s+",
+			" - "
+		)
+
+	lower =
+		string.gsub(
+			lower,
+			"%s+times%s+",
+			" * "
+		)
+
+	lower =
+		string.gsub(
+			lower,
+			"%s+multiplied%s+by%s+",
+			" * "
+		)
+
+	lower =
+		string.gsub(
+			lower,
+			"%s+divide%s+",
+			" / "
+		)
+
+	lower =
+		string.gsub(
+			lower,
+			"%s+divided%s+by%s+",
+			" / "
+		)
+
+	lower =
+		string.gsub(
+			lower,
+			"%s+",
+			" "
+		)
+
+	lower =
+		string.gsub(
+			lower,
+			"^%s+",
+			""
+		)
+
+	lower =
+		string.gsub(
+			lower,
+			"%s+$",
+			""
+		)
+
+	return lower
+end
+
+---------------------------------------------------------------------
+-- DIRECT MATH
+---------------------------------------------------------------------
+
+local function solveMath(text)
+
+	local expression =
+		normalizeMathText(
+			text
+		)
+
+	local aText,
+		operator,
+		bText =
+		string.match(
+			expression,
+			"^([%-]?[%d%.]+)%s*([%+%-%*/%%%^])%s*([%-]?[%d%.]+)[%?%!%.]*$"
+		)
+
+	if not aText
+		or not operator
+		or not bText
+	then
+
+		return nil
+	end
+
+	local a =
+		tonumber(
+			aText
+		)
+
+	local b =
+		tonumber(
+			bText
+		)
+
+	if not a
+		or not b
+	then
+
+		return nil
+	end
+
+	if
+		(operator == "/"
+			or operator == "%")
+		and b == 0
+	then
+
+		return
+			"I can't divide by zero."
+	end
+
+	local result =
+		calculateExpression(
+			a,
+			operator,
+			b
+		)
+
+	if result == nil then
+		return nil
+	end
+
+	return
+		formatNumber(a)
+		..
+		" "
+		..
+		operator
+		..
+		" "
+		..
+		formatNumber(b)
+		..
+		" = "
+		..
+		formatNumber(result)
+		..
+		"."
+end
+
+---------------------------------------------------------------------
+-- SPLIT TARGETS
+---------------------------------------------------------------------
+
+local function splitTargets(text)
+
+	local results = {}
+
+	text =
+		string.gsub(
+			text,
+			"%s+and%s+",
+			","
+		)
+
+	for item in
+		string.gmatch(
+			text,
+			"[^,]+"
+		)
+	do
+
+		item =
+			normalizeWord(
+				item
+			)
+
+		if item ~= "" then
+
+			table.insert(
+				results,
+				item
+			)
+
+		end
+	end
+
+	return results
+end
+
+---------------------------------------------------------------------
+-- EXTRACT "MEANS"
+---------------------------------------------------------------------
+
+local function extractMeansRelation(text)
+
+	local lower =
+		string.lower(
+			text
+		)
+
+	local subject,
+		targetText =
+		string.match(
+			lower,
+			"^%s*(.-)%s+means%s+(.+)%s*$"
+		)
+
+	if not subject
+		or not targetText
+	then
+
+		return nil
+	end
+
+	subject =
+		normalizeWord(
+			subject
+		)
+
+	targetText =
+		string.gsub(
+			targetText,
+			"[%?%!%.]+$",
+			""
+		)
+
+	local targets =
+		splitTargets(
+			targetText
+		)
+
+	if subject == ""
+		or #targets == 0
+	then
+
+		return nil
+	end
+
+	return {
+
+		subject =
+			subject,
+
+		relation =
+			"means",
+
+		targets =
+			targets
+	}
+end
+
+---------------------------------------------------------------------
+-- EXTRACT "IS A / IS AN"
+--
+-- a dog is a animal
+-- dog is an animal
+-- roblox is a game
+--
+-- Leading "a/an/the" is removed from subject.
+---------------------------------------------------------------------
+
+local function extractIsARelation(text)
+
+	local lower =
+		string.lower(
+			text
+		)
+
+	local subject,
+		target =
+		string.match(
+			lower,
+			"^%s*(.-)%s+is%s+an?%s+(.+)%s*$"
+		)
+
+	if not subject
+		or not target
+	then
+
+		return nil
+	end
+
+	-------------------------------------------------------------
+	-- REMOVE LEADING ARTICLES FROM SUBJECT
+	-------------------------------------------------------------
+
+	subject =
+		string.gsub(
+			subject,
+			"^%s*an%s+",
+			""
+		)
+
+	subject =
+		string.gsub(
+			subject,
+			"^%s*a%s+",
+			""
+		)
+
+	subject =
+		string.gsub(
+			subject,
+			"^%s*the%s+",
+			""
+		)
+
+	subject =
+		normalizeWord(
+			subject
+		)
+
+	target =
+		normalizeWord(
+			target
+		)
+
+	if subject == ""
+		or target == ""
+	then
+
+		return nil
+	end
+
+	return {
+
+		subject =
+			subject,
+
+		relation =
+			"is_a",
+
+		targets = {
+			target
+		}
+	}
+end
+
+---------------------------------------------------------------------
+-- LEARN STRUCTURED FACT
+---------------------------------------------------------------------
+
+local function learnStructuredFact(text)
+
+	-------------------------------------------------------------
+	-- FIRST:
+	-- yo means hello
+	-------------------------------------------------------------
+
+	local fact =
+		extractMeansRelation(
+			text
+		)
+
+	-------------------------------------------------------------
+	-- SECOND:
+	-- dog is an animal
+	-------------------------------------------------------------
+
+	if not fact then
+
+		fact =
+			extractIsARelation(
+				text
+			)
+
+	end
+
+	if not fact then
+		return nil
+	end
+
+	for _, target
+		in ipairs(
+			fact.targets
+		)
+	do
+
+		safeCall(
+			"Memory.LearnRelation",
+			Memory.LearnRelation,
+			fact.subject,
+			fact.relation,
+			target,
+			2
+		)
+
+		---------------------------------------------------------
+		-- MILD ASSOCIATION
+		---------------------------------------------------------
+
+		if Memory.Associate then
+
+			safeCall(
+				"Memory.Associate",
+				Memory.Associate,
+				fact.subject,
+				target,
+				0.2
+			)
+
+		end
+	end
+
+	return fact
+end
+
+---------------------------------------------------------------------
+-- JOIN WORDS
+---------------------------------------------------------------------
+
+local function joinWords(words)
+
+	if #words == 0 then
+		return ""
+	end
+
+	if #words == 1 then
+		return words[1]
+	end
+
+	if #words == 2 then
+
+		return
+			words[1]
+			..
+			" and "
+			..
+			words[2]
+	end
+
+	local parts = {}
+
+	for i, word
+		in ipairs(words)
+	do
+
+		if i == #words then
+
+			table.insert(
+				parts,
+				"and " .. word
+			)
+
+		else
+
+			table.insert(
+				parts,
+				word
+			)
+
+		end
+	end
+
+	return
+		table.concat(
+			parts,
+			", "
+		)
+end
+
+---------------------------------------------------------------------
+-- LOOK UP RELATION TARGETS
+---------------------------------------------------------------------
+
+local function getRelationTargets(
+	subject,
+	relation,
+	limit
+)
+
+	subject =
+		normalizeWord(
+			subject
+		)
+
+	local results =
+		safeCall(
+			"Memory.GetRelations",
+			Memory.GetRelations,
+			subject,
+			relation,
+			limit or 10
+		)
+		or {}
+
+	local targets = {}
+
+	for _, item
+		in ipairs(results)
+	do
+
+		local target =
+			item.target
+			or item.word
+			or item.key
+
+		if target then
+
+			table.insert(
+				targets,
+				target
+			)
+
+		end
+	end
+
+	return targets
+end
+
+---------------------------------------------------------------------
+-- LOOK UP DEFINITION
+---------------------------------------------------------------------
+
+local function getDefinition(word)
+
+	local results =
+		getRelationTargets(
+			word,
+			"means",
+			10
+		)
+
+	if #results == 0 then
+		return nil
+	end
+
+	return results
+end
+
+---------------------------------------------------------------------
+-- "WHAT DOES X MEAN?"
+---------------------------------------------------------------------
+
+local function parseMeaningQuestion(text)
+
+	local lower =
+		string.lower(
+			text
+		)
+
+	local subject =
+		string.match(
+			lower,
+			"^%s*what%s+does%s+(.+)%s+mean[%?%!%.]*$"
+		)
+
+	if not subject then
+
+		subject =
+			string.match(
+				lower,
+				"^%s*what%s+is%s+the%s+meaning%s+of%s+(.+)[%?%!%.]*$"
+			)
+
+	end
+
+	if not subject then
+		return nil
+	end
+
+	return
+		normalizeWord(
+			subject
+		)
+end
+
+---------------------------------------------------------------------
+-- SINGLE WORD
+---------------------------------------------------------------------
+
+local function getSingleWord(text)
+
+	local lower =
+		string.lower(
+			text
+		)
+
+	lower =
+		string.gsub(
+			lower,
+			"[%?%!%.%,]",
+			""
+		)
+
+	lower =
+		cleanText(
+			lower
+		)
+
+	if lower == "" then
+		return nil
+	end
+
+	if string.find(
+		lower,
+		"%s"
+		) then
+
+		return nil
+	end
+
+	return lower
+end
+
+---------------------------------------------------------------------
+-- DEFINITION RESPONSE
+---------------------------------------------------------------------
+
+local function tryDefinitionResponse(text)
+
+	-------------------------------------------------------------
+	-- "what does yo mean?"
+	-------------------------------------------------------------
+
+	local requestedWord =
+		parseMeaningQuestion(
+			text
+		)
+
+	if requestedWord then
+
+		local definitions =
+			getDefinition(
+				requestedWord
+			)
+
+		if definitions then
+
+			return
+				capitalize(
+					requestedWord
+				)
+				..
+				" means "
+				..
+				joinWords(
+					definitions
+				)
+				..
+				"."
+		end
+
+		return nil
+	end
+
+	-------------------------------------------------------------
+	-- JUST:
+	-- yo
+	-------------------------------------------------------------
+
+	local singleWord =
+		getSingleWord(
+			text
+		)
+
+	if singleWord then
+
+		local definitions =
+			getDefinition(
+				singleWord
+			)
+
+		if definitions then
+
+			if #definitions == 1 then
+
+				return
+					capitalize(
+						definitions[1]
+					)
+					..
+					"."
+			end
+
+			return
+				capitalize(
+					singleWord
+				)
+				..
+				" means "
+				..
+				joinWords(
+					definitions
+				)
+				..
+				"."
+		end
+	end
+
+	return nil
+end
+
+---------------------------------------------------------------------
+-- WHAT IS X?
+---------------------------------------------------------------------
+
+local function parseWhatIsQuestion(text)
+
+	local lower =
+		string.lower(
+			text
+		)
+
+	local subject =
+		string.match(
+			lower,
+			"^%s*what%s+is%s+an?%s+(.+)[%?%!%.]*$"
+		)
+
+	if not subject then
+
+		subject =
+			string.match(
+				lower,
+				"^%s*what%s+is%s+(.+)[%?%!%.]*$"
+			)
+
+	end
+
+	if not subject then
+		return nil
+	end
+
+	subject =
+		string.gsub(
+			subject,
+			"^an%s+",
+			""
+		)
+
+	subject =
+		string.gsub(
+			subject,
+			"^a%s+",
+			""
+		)
+
+	return
+		normalizeWord(
+			subject
+		)
+end
+
+---------------------------------------------------------------------
+-- WHAT IS RESPONSE
+---------------------------------------------------------------------
+
+local function tryWhatIsResponse(text)
+
+	local subject =
+		parseWhatIsQuestion(
+			text
+		)
+
+	if not subject then
+		return nil
+	end
+
+	-------------------------------------------------------------
+	-- IS_A
+	-------------------------------------------------------------
+
+	local types =
+		getRelationTargets(
+			subject,
+			"is_a",
+			10
+		)
+
+	if #types > 0 then
+
+		if #types == 1 then
+
+			return
+				capitalize(
+					subject
+				)
+				..
+				" is "
+				..
+				addArticle(
+					types[1]
+				)
+				..
+				"."
+		end
+
+		return
+			capitalize(
+				subject
+			)
+			..
+			" is "
+			..
+			joinWords(
+				types
+			)
+			..
+			"."
+	end
+
+	-------------------------------------------------------------
+	-- MEANS
+	-------------------------------------------------------------
+
+	local meanings =
+		getDefinition(
+			subject
+		)
+
+	if meanings then
+
+		return
+			capitalize(
+				subject
+			)
+			..
+			" means "
+			..
+			joinWords(
+				meanings
+			)
+			..
+			"."
+	end
+
+	return nil
+end
+
+---------------------------------------------------------------------
+-- GET NEURAL WORDS
+---------------------------------------------------------------------
+
+local function getNeuralWords(vector)
+
+	if Dictionary.VectorToTopWords then
+
+		return
+			safeCall(
+				"Dictionary.VectorToTopWords",
+				Dictionary.VectorToTopWords,
+				vector,
+				10
+			)
+			or {}
+	end
+
+	return {}
+end
+
+---------------------------------------------------------------------
+-- PRIMARY WORD
+---------------------------------------------------------------------
+
+local function findPrimaryWord(
+	neuralWords,
+	wmState
+)
+
+	local current =
+		safeCall(
+			"WorkingMemory.GetCurrentWords",
+			WorkingMemory.GetCurrentWords
+		)
+		or {}
+
+	if typeof(current)
+		== "table"
+	then
+
+		for i = #current, 1, -1 do
+
+			local word =
+				normalizeWord(
+					current[i]
+				)
+
+			if word ~= ""
+				and not LEARNING_STOP_WORDS[word]
+				and not tonumber(word)
+			then
+
+				return word
+			end
+		end
+	end
+
+	if wmState
+		and wmState.topic
+	then
+
+		local topic =
+			normalizeWord(
+				wmState.topic
+			)
+
+		if topic ~= ""
+			and not LEARNING_STOP_WORDS[topic]
+		then
+
+			return topic
+		end
+	end
+
+	for _, item
+		in ipairs(neuralWords)
+	do
+
+		local word
+
+		if typeof(item)
+			== "table"
+		then
+
+			word =
+				item.word
+				or item.key
+
+		else
+
+			word =
+				item
+		end
+
+		word =
+			normalizeWord(
+				word
+			)
+
+		if word ~= ""
+			and not LEARNING_STOP_WORDS[word]
+		then
+
+			return word
+		end
+	end
+
+	return nil
+end
+
+---------------------------------------------------------------------
+-- ASSOCIATIONS
+---------------------------------------------------------------------
+
+local function getAssociationWords(word)
+
+	if not word then
+		return {}
+	end
+
+	local results = {}
+	local used = {}
+
+	local associations =
+		safeCall(
+			"Memory.GetAssociations",
+			Memory.GetAssociations,
+			word,
+			5
+		)
+		or {}
+
+	for _, entry
+		in ipairs(
+			associations
+		)
+	do
+
+		local target =
+			normalizeWord(
+				entry.word
+				or entry.key
+			)
+
+		if target ~= ""
+			and not used[target]
+			and not LEARNING_STOP_WORDS[target]
+		then
+
+			used[target] =
+				true
+
+			table.insert(
+				results,
+				target
+			)
+
+		end
+	end
+
+	return results
+end
+
+---------------------------------------------------------------------
+-- NEXT-WORD NEURAL RESPONSE DECODER
+--
+-- The old decoder took ONE output vector and grabbed the four nearest
+-- dictionary words. That produced responses such as:
+--     "Plant time their nice"
+--
+-- This decoder predicts ONE word, appends that word to the context,
+-- then predicts the next word. This preserves sequence generation.
+---------------------------------------------------------------------
+
+local RESPONSE_END_TOKEN = "responseend"
+local MAX_GENERATED_WORDS = 14
+local MIN_NEXT_WORD_SCORE = 0.20
+
+local function decodeNextWord(neuralVector)
+
+	if typeof(neuralVector) ~= "table" then
+		return nil, nil
+	end
+
+	if Dictionary.VectorToScoredWords then
+
+		local scored =
+			safeCall(
+				"Dictionary.VectorToScoredWords",
+				Dictionary.VectorToScoredWords,
+				neuralVector,
+				5
+			)
+			or {}
+
+		for _, item in ipairs(scored) do
+
+			local word =
+				normalizeWord(
+					item.word
+					or item.key
+					or item.text
+				)
+
+			local score =
+				tonumber(
+					item.score
+					or item.similarity
+					or item.weight
+				)
+
+			if word ~= ""
+				and not tonumber(word)
+			then
+				return word, score
+			end
+		end
+	end
+
+	if Dictionary.VectorToTopWords then
+
+		local words =
+			safeCall(
+				"Dictionary.VectorToTopWords",
+				Dictionary.VectorToTopWords,
+				neuralVector,
+				1
+			)
+			or {}
+
+		if words[1] then
+			return normalizeWord(words[1]), nil
+		end
+	end
+
+	return nil, nil
+end
+
+local function generateNeuralResponse(
+	brainInput,
+	wmState
+)
+
+	local _ = wmState
+
+	-- A brand-new random network should NOT talk.
+	if Neurons.IsTrained
+		and not Neurons.IsTrained()
+	then
+		print(
+			"[NEURAL RESPONSE] Network has not been trained yet."
+		)
+		return nil
+	end
+
+	local context =
+		cleanText(
+			brainInput
+		)
+
+	if context == "" then
+		return nil
+	end
+
+	local generated = {}
+	local repeated = {}
+
+	for step = 1, MAX_GENERATED_WORDS do
+
+		local inputVector =
+			safeCall(
+				"Dictionary.TextToVector",
+				Dictionary.TextToVector,
+				context
+			)
+
+		if typeof(inputVector) ~= "table" then
+			break
+		end
+
+		local outputVector =
+			safeCall(
+				"Neurons.Predict",
+				Neurons.Predict,
+				inputVector
+			)
+
+		if typeof(outputVector) ~= "table" then
+			break
+		end
+
+		local nextWord, score =
+			decodeNextWord(
+				outputVector
+			)
+
+		if not nextWord
+			or nextWord == ""
+		then
+			break
+		end
+
+		print(
+			"[NEXT WORD]",
+			step,
+			nextWord,
+			"score:",
+			tostring(score)
+		)
+
+		if nextWord == RESPONSE_END_TOKEN then
+			break
+		end
+
+		if score ~= nil
+			and score < MIN_NEXT_WORD_SCORE
+		then
+			print(
+				"[NEXT WORD] confidence too low; stopping."
+			)
+			break
+		end
+
+		repeated[nextWord] =
+			(repeated[nextWord] or 0)
+			+ 1
+
+		if repeated[nextWord] > 2 then
+			print(
+				"[NEXT WORD] repetition limit reached; stopping."
+			)
+			break
+		end
+
+		table.insert(
+			generated,
+			nextWord
+		)
+
+		context =
+			context
+			..
+			" "
+			..
+			nextWord
+	end
+
+	if #generated == 0 then
+		return nil
+	end
+
+	return
+		capitalize(
+			table.concat(
+				generated,
+				" "
+			)
+		)
+end
+
+---------------------------------------------------------------------
+-- NORMAL WORD LEARNING
+---------------------------------------------------------------------
+
+local function learnNormalMessage()
+
+	local words =
+		safeCall(
+			"WorkingMemory.GetCurrentWords",
+			WorkingMemory.GetCurrentWords
+		)
+
+	if typeof(words)
+		~= "table"
+	then
+
+		return
+	end
+
+	local filtered = {}
+
+	for _, word
+		in ipairs(words)
+	do
+
+		word =
+			normalizeWord(
+				word
+			)
+
+		if word ~= ""
+			and not LEARNING_STOP_WORDS[word]
+			and not tonumber(word)
+		then
+
+			table.insert(
+				filtered,
+				word
+			)
+
+		end
+	end
+
+	for _, word
+		in ipairs(filtered)
+	do
+
+		safeCall(
+			"Memory.ReinforcePattern",
+			Memory.ReinforcePattern,
+			word,
+			0.2
+		)
+
+	end
+
+	for i = 1, #filtered do
+
+		for j =
+			i + 1,
+			math.min(
+				#filtered,
+				i + 2
+			)
+		do
+
+			if filtered[i]
+				~= filtered[j]
+			then
+
+				safeCall(
+					"Memory.AssociateBoth",
+					Memory.AssociateBoth,
+					filtered[i],
+					filtered[j],
+					0.1
+				)
+
+			end
+		end
+	end
+end
+
+---------------------------------------------------------------------
+-- GEMINI RATE LIMIT
+---------------------------------------------------------------------
+
+local function canUseGemini()
+
+	if not GEMINI_ENABLED then
+		return false
+	end
+
+	if GeminiLocked then
+
+		if os.time()
+			>= GeminiUnlockTime
+		then
+
+			GeminiLocked = false
+			GeminiUnlockTime = 0
+
+		else
+
+			return false
+		end
+	end
+
+	return true
+end
+
+local function lockGemini(seconds)
+
+	seconds =
+		math.max(
+			1,
+			tonumber(seconds)
+			or 5
+		)
+
+	GeminiLocked = true
+
+	GeminiUnlockTime =
+		os.time()
+		+
+		seconds
+end
+
+---------------------------------------------------------------------
+-- GEMINI REQUEST
+---------------------------------------------------------------------
+
+local function callGemini(
+	systemPrompt,
+	userPrompt
+)
+
+	if not canUseGemini() then
+		return nil
+	end
+
+	local key =
+		getGeminiAPIKey()
+
+	if not key then
+		return nil
+	end
+
+	local url =
+		GEMINI_API_BASE
+		..
+		GEMINI_MODEL
+		..
+		":generateContent?key="
+		..
+		key
+
+	local body = {
+
+		contents = {
+
+			{
+				role =
+					"user",
+
+				parts = {
+
+					{
+						text =
+							"SYSTEM INSTRUCTION:\n"
+							..
+							systemPrompt
+					}
+				}
+			},
+
+			{
+				role =
+					"user",
+
+				parts = {
+
+					{
+						text =
+							userPrompt
+					}
+				}
+			}
+		}
+	}
+
+	local success,
+		response =
+		pcall(
+			function()
+
+				return
+				HttpService:RequestAsync(
+					{
+						Url =
+						url,
+
+						Method =
+						"POST",
+
+						Headers = {
+
+							["Content-Type"] =
+							"application/json"
+						},
+
+						Body =
+						HttpService:JSONEncode(
+							body
+						)
+					}
+				)
+
+			end
+		)
+
+	if not success
+		or not response
+	then
+
+		warn(
+			"[GEMINI] Request failed."
+		)
+
+		return nil
+	end
+
+	if response.StatusCode == 429 then
+
+		local retry =
+			tonumber(
+				response.Headers
+				and response.Headers["retry-after"]
+			)
+			or 5
+
+		lockGemini(
+			math.min(
+				retry,
+				60
+			)
+		)
+
+		warn(
+			"[GEMINI] Rate limited."
+		)
+
+		return nil
+	end
+
+	if not response.Success then
+
+		warn(
+			"[GEMINI HTTP]",
+			response.StatusCode,
+			response.Body
+		)
+
+		return nil
+	end
+
+	local decoded
+
+	local decodeOK =
+		pcall(
+			function()
+
+				decoded =
+				HttpService:JSONDecode(
+					response.Body
+				)
+
+			end
+		)
+
+	if not decodeOK then
+		return nil
+	end
+
+	local text =
+		decoded
+		and decoded.candidates
+		and decoded.candidates[1]
+		and decoded.candidates[1].content
+		and decoded.candidates[1].content.parts
+		and decoded.candidates[1].content.parts[1]
+		and decoded.candidates[1].content.parts[1].text
+
+	if typeof(text)
+		~= "string"
+	then
+
+		return nil
+	end
+
+	return
+		cleanText(
+			text
+		)
+end
+
+---------------------------------------------------------------------
+-- GEMINI INTERPRETATION
+---------------------------------------------------------------------
+
+local function getGeminiInterpretation(text)
+
+	local instruction =
+		[[
+You are a teacher for a small local AI.
+
+Explain what the user's message MEANS.
+
+Do NOT answer the user.
+
+Return ONE short plain-text sentence.
+
+Examples:
+
+hi
+The user is greeting the AI and expects a greeting.
+
+yo
+The user is using an informal greeting similar to hello.
+
+a dog is an animal
+The user is teaching that a dog belongs to the animal category.
+
+what is tungsten
+The user is asking what tungsten is.
+
+bro means brother
+The user is teaching that bro means brother.
+
+what is 2x2
+The user is asking for the result of two multiplied by two.
+
+Plain text only.
+]]
+
+	return
+		callGemini(
+			instruction,
+			text
+		)
+end
+
+---------------------------------------------------------------------
+-- GEMINI FACT EXTRACTION
+---------------------------------------------------------------------
+
+local function getGeminiFacts(
+	userText,
+	context
+)
+
+	local instruction =
+		[[
+You are extracting knowledge for a small local AI.
+
+Return useful factual relationships.
+
+Allowed format:
+
+SUBJECT|means|TARGET
+SUBJECT|is_a|TARGET
+SUBJECT|has|TARGET
+SUBJECT|can_do|TARGET
+SUBJECT|likes|TARGET
+SUBJECT|part_of|TARGET
+SUBJECT|used_for|TARGET
+SUBJECT|located_in|TARGET
+SUBJECT|causes|TARGET
+
+One relationship per line.
+
+Rules:
+
+- Do not invent unsupported facts.
+- Keep subjects and targets short.
+- Prefer lowercase.
+- Do not use markdown.
+- Do not explain anything.
+- If no useful fact exists, output exactly:
+
+NONE
+]]
+
+	local prompt =
+		"USER MESSAGE:\n"
+		..
+		userText
+		..
+		"\n\nCONTEXT:\n"
+		..
+		tostring(
+			context or ""
+		)
+
+	return
+		callGemini(
+			instruction,
+			prompt
+		)
+end
+
+---------------------------------------------------------------------
+-- GEMINI NEURAL EXAMPLES
+---------------------------------------------------------------------
+
+local function getGeminiTraining(
+	userText,
+	interpretation,
+	facts
+)
+
+	local instruction =
+		[[
+You are generating training pairs for a small local neural AI.
+
+Return:
+
+INPUT|EXPECTED
+
+Maximum 4 lines.
+
+Examples:
+
+hi|hello
+hey|hello
+yo|hello
+what is dog|animal
+2x2|4
+
+No markdown.
+No numbering.
+No explanation.
+Do not invent factual answers.
+]]
+
+	local prompt =
+		"USER:\n"
+		..
+		userText
+		..
+		"\n\nMEANING:\n"
+		..
+		tostring(
+			interpretation or ""
+		)
+		..
+		"\n\nFACTS:\n"
+		..
+		tostring(
+			facts or "NONE"
+		)
+
+	return
+		callGemini(
+			instruction,
+			prompt
+		)
+end
+
+---------------------------------------------------------------------
+-- VALID RELATIONS
+---------------------------------------------------------------------
+
+local ALLOWED_RELATIONS = {
+
+	means = true,
+	is_a = true,
+
+	has = true,
+	can_do = true,
+	likes = true,
+
+	part_of = true,
+	used_for = true,
+	located_in = true,
+	causes = true
+}
+
+---------------------------------------------------------------------
+-- TRAIN GEMINI FACTS
+---------------------------------------------------------------------
+
+local function trainFacts(text)
+
+	if typeof(text)
+		~= "string"
+	then
+
+		return 0
+	end
+
+	if string.upper(
+		cleanText(text)
+		) == "NONE"
+	then
+
+		return 0
+	end
+
+	local count = 0
+
+	for line in
+		string.gmatch(
+			text,
+			"[^\r\n]+"
+		)
+	do
+
+		local subject,
+			relation,
+			target =
+			string.match(
+				line,
+				"^([^|]+)|([^|]+)|([^|]+)$"
+			)
+
+		if subject
+			and relation
+			and target
+		then
+
+			subject =
+				normalizeWord(
+					subject
+				)
+
+			relation =
+				normalizeWord(
+					relation
+				)
+
+			target =
+				normalizeWord(
+					target
+				)
+
+			if subject ~= ""
+				and target ~= ""
+				and ALLOWED_RELATIONS[
+				relation
+				]
+			then
+
+				safeCall(
+					"Memory.LearnRelation",
+					Memory.LearnRelation,
+					subject,
+					relation,
+					target,
+					1
+				)
+
+				count += 1
+
+				print(
+					"[GEMINI FACT]",
+					subject,
+					"--"
+						..
+						relation
+						..
+						"-->",
+					target
+				)
+
+			end
+		end
+	end
+
+	return count
+end
+
+---------------------------------------------------------------------
+-- TRAIN NEURAL EXAMPLES
+---------------------------------------------------------------------
+
+local function trainNeuralExamples(text)
+
+	if typeof(text) ~= "string" then
+		return 0
+	end
+
+	if not Neurons.Train then
+		return 0
+	end
+
+	local trained = 0
+
+	for line in string.gmatch(text, "[^\r\n]+") do
+
+		local inputText, expectedText =
+			string.match(
+				line,
+				"^([^|]+)|([^|]+)$"
+			)
+
+		if inputText and expectedText then
+
+			inputText = cleanText(inputText)
+			expectedText = cleanText(expectedText)
+
+			if inputText ~= ""
+				and expectedText ~= ""
+			then
+
+				local expectedWords =
+					Dictionary.Tokenize(expectedText)
+
+				if typeof(expectedWords) == "table"
+					and #expectedWords > 0
+				then
+
+					local context = inputText
+					local sequenceTargets = table.clone(expectedWords)
+
+					-- Teach an explicit ending so generation knows when to stop.
+					table.insert(
+						sequenceTargets,
+						RESPONSE_END_TOKEN
+					)
+
+					for _, targetWord in ipairs(sequenceTargets) do
+
+						local inputVector =
+							safeCall(
+								"Dictionary.TextToVector",
+								Dictionary.TextToVector,
+								context
+							)
+
+						local targetVector =
+							safeCall(
+								"Dictionary.TextToVector",
+								Dictionary.TextToVector,
+								targetWord
+							)
+
+						if typeof(inputVector) == "table"
+							and typeof(targetVector) == "table"
+						then
+
+							-- Repetition gives this small local model enough
+							-- gradient signal to learn the next-token mapping.
+							for _ = 1, 12 do
+
+								safeCall(
+									"Neurons.Train",
+									Neurons.Train,
+									inputVector,
+									targetVector,
+									0.012
+								)
+							end
+
+							print(
+								"[NEURAL NEXT-TOKEN TRAIN]",
+								context,
+								"->",
+								targetWord
+							)
+						end
+
+						if targetWord ~= RESPONSE_END_TOKEN then
+							context =
+								context
+								..
+								" "
+								..
+								targetWord
+						end
+					end
+
+					trained += 1
+				end
+			end
+		end
+	end
+
+	return trained
+end
+
+---------------------------------------------------------------------
+-- RUN GEMINI TEACHER
+--
+-- IMPORTANT:
+-- Missing key is checked ONCE.
+-- We do NOT print missing-key warning 3 times.
+---------------------------------------------------------------------
+
+local function runGeminiTeacher(
+	text,
+	internetContext
+)
+
+	if not GEMINI_ENABLED then
+
+		return {
+			interpretation = "",
+			facts = "",
+			training = ""
+		}
+	end
+
+	-----------------------------------------------------------------
+	-- KEY CHECK ONCE
+	-----------------------------------------------------------------
+
+	if not getGeminiAPIKey() then
+
+		print(
+			"[GEMINI] Teacher disabled - ServerStorage.GeminiAPIKey missing."
+		)
+
+		return {
+			interpretation = "",
+			facts = "",
+			training = ""
+		}
+	end
+
+	if not canUseGemini() then
+
+		return {
+			interpretation = "",
+			facts = "",
+			training = ""
+		}
+	end
+
+	local requestCount = 0
+
+	-----------------------------------------------------------------
+	-- REQUEST 1:
+	-- UNDERSTAND USER
+	-----------------------------------------------------------------
+
+	local interpretation = ""
+
+	if requestCount
+		< MAX_GEMINI_REQUESTS
+	then
+
+		interpretation =
+			getGeminiInterpretation(
+				text
+			)
+			or ""
+
+		requestCount += 1
+	end
+
+	-----------------------------------------------------------------
+	-- BUILD FACT CONTEXT
+	-----------------------------------------------------------------
+
+	local context =
+		interpretation
+
+	if internetContext
+		and internetContext.extract
+	then
+
+		context =
+			context
+			..
+			"\n\nINTERNET INFORMATION:\n"
+			..
+			internetContext.extract
+	end
+
+	-----------------------------------------------------------------
+	-- REQUEST 2:
+	-- FACTS
+	-----------------------------------------------------------------
+
+	local facts =
+		"NONE"
+
+	if requestCount
+		< MAX_GEMINI_REQUESTS
+	then
+
+		facts =
+			getGeminiFacts(
+				text,
+				context
+			)
+			or "NONE"
+
+		requestCount += 1
+	end
+
+	local factCount =
+		trainFacts(
+			facts
+		)
+
+	-----------------------------------------------------------------
+	-- REQUEST 3:
+	-- NEURAL TRAINING
+	-----------------------------------------------------------------
+
+	local training = ""
+
+	if requestCount
+		< MAX_GEMINI_REQUESTS
+	then
+
+		training =
+			getGeminiTraining(
+				text,
+				interpretation,
+				facts
+			)
+			or ""
+
+		requestCount += 1
+	end
+
+	local exampleCount =
+		trainNeuralExamples(
+			training
+		)
+
+	print(
+		"[GEMINI TEACHER]",
+		"requests:",
+		requestCount,
+		"facts:",
+		factCount,
+		"examples:",
+		exampleCount
+	)
+
+	if interpretation ~= "" then
+
+		print(
+			"[GEMINI MEANING]",
+			interpretation
+		)
+
+	end
+
+	return {
+
+		interpretation =
+			interpretation,
+
+		facts =
+			facts,
+
+		training =
+			training
+	}
+end
+
+---------------------------------------------------------------------
+-- INTERNET REQUEST
+---------------------------------------------------------------------
+
+local function internetRequest(url)
+
+	if not INTERNET_ENABLED then
+		return nil
+	end
+
+	local success,
+		response =
+		pcall(
+			function()
+
+				return
+				HttpService:RequestAsync(
+					{
+						Url =
+						url,
+
+						Method =
+						"GET",
+
+						Headers = {
+
+							["Accept"] =
+							"application/json",
+
+							["User-Agent"] =
+							"ZINC-Brain/1.0"
+						}
+					}
+				)
+
+			end
+		)
+
+	if not success
+		or not response
+	then
+
+		warn(
+			"[INTERNET] Request failed."
+		)
+
+		return nil
+	end
+
+	if not response.Success then
+
+		warn(
+			"[INTERNET HTTP]",
+			response.StatusCode
+		)
+
+		return nil
+	end
+
+	return response
+end
+
+---------------------------------------------------------------------
+-- WIKIPEDIA SEARCH
+---------------------------------------------------------------------
+
+local function searchWikipedia(
+	query,
+	limit
+)
+
+	limit =
+		math.clamp(
+			tonumber(limit)
+			or 3,
+			1,
+			5
+		)
+
+	local url =
+		WIKIPEDIA_SEARCH_URL
+		..
+		"?q="
+		..
+		HttpService:UrlEncode(
+			query
+		)
+		..
+		"&limit="
+		..
+		tostring(
+			limit
+		)
+
+	local response =
+		internetRequest(
+			url
+		)
+
+	if not response then
+		return {}
+	end
+
+	local decoded
+
+	local success =
+		pcall(
+			function()
+
+				decoded =
+				HttpService:JSONDecode(
+					response.Body
+				)
+
+			end
+		)
+
+	if not success
+		or typeof(decoded)
+		~= "table"
+		or typeof(decoded.pages)
+		~= "table"
+	then
+
+		return {}
+	end
+
+	return decoded.pages
+end
+
+---------------------------------------------------------------------
+-- WIKIPEDIA SUMMARY
+---------------------------------------------------------------------
+
+local function getWikipediaSummary(title)
+
+	local url =
+		WIKIPEDIA_SUMMARY_URL
+		..
+		HttpService:UrlEncode(
+			title
+		)
+
+	local response =
+		internetRequest(
+			url
+		)
+
+	if not response then
+		return nil
+	end
+
+	local decoded
+
+	local success =
+		pcall(
+			function()
+
+				decoded =
+				HttpService:JSONDecode(
+					response.Body
+				)
+
+			end
+		)
+
+	if not success
+		or typeof(decoded)
+		~= "table"
+	then
+
+		return nil
+	end
+
+	if typeof(decoded.extract)
+		~= "string"
+	then
+
+		return nil
+	end
+
+	return {
+
+		title =
+			decoded.title,
+
+		description =
+			decoded.description,
+
+		extract =
+			decoded.extract
+	}
+end
+
+---------------------------------------------------------------------
+-- INTERNET LOOKUP
+---------------------------------------------------------------------
+
+local function internetLookup(query)
+
+	if not INTERNET_ENABLED then
+		return nil
+	end
+
+	local pages =
+		searchWikipedia(
+			query,
+			3
+		)
+
+	if #pages == 0 then
+		return nil
+	end
+
+	for _, page
+		in ipairs(pages)
+	do
+
+		if page.title then
+
+			local summary =
+				getWikipediaSummary(
+					page.title
+				)
+
+			if summary then
+
+				print(
+					"[INTERNET RESULT]",
+					summary.title
+				)
+
+				return summary
+			end
+		end
+	end
+
+	return nil
+end
+
+---------------------------------------------------------------------
+-- SHOULD USE INTERNET?
+---------------------------------------------------------------------
+
+local function shouldUseInternet(text)
+
+	local lower =
+		string.lower(
+			text
+		)
+
+	if string.match(
+		lower,
+		"^%s*what%s+is%s+"
+		) then
+
+		return true
+	end
+
+	if string.match(
+		lower,
+		"^%s*who%s+is%s+"
+		) then
+
+		return true
+	end
+
+	if string.match(
+		lower,
+		"^%s*what%s+are%s+"
+		) then
+
+		return true
+	end
+
+	if string.match(
+		lower,
+		"^%s*where%s+is%s+"
+		) then
+
+		return true
+	end
+
+	if string.match(
+		lower,
+		"^%s*tell%s+me%s+about%s+"
+		) then
+
+		return true
+	end
+
+	return false
+end
+
+---------------------------------------------------------------------
+-- EXTRACT SEARCH TERM
+---------------------------------------------------------------------
+
+local function extractSearchTerm(text)
+
+	local lower =
+		string.lower(
+			text
+		)
+
+	local subject =
+		string.match(
+			lower,
+			"^%s*what%s+is%s+an?%s+(.+)"
+		)
+
+	if not subject then
+
+		subject =
+			string.match(
+				lower,
+				"^%s*what%s+is%s+(.+)"
+			)
+
+	end
+
+	if not subject then
+
+		subject =
+			string.match(
+				lower,
+				"^%s*what%s+are%s+(.+)"
+			)
+
+	end
+
+	if not subject then
+
+		subject =
+			string.match(
+				lower,
+				"^%s*who%s+is%s+(.+)"
+			)
+
+	end
+
+	if not subject then
+
+		subject =
+			string.match(
+				lower,
+				"^%s*where%s+is%s+(.+)"
+			)
+
+	end
+
+	if not subject then
+
+		subject =
+			string.match(
+				lower,
+				"^%s*tell%s+me%s+about%s+(.+)"
+			)
+
+	end
+
+	if not subject then
+		subject = text
+	end
+
+	subject =
+		string.gsub(
+			subject,
+			"[%?%!%.]+$",
+			""
+		)
+
+	return
+		cleanText(
+			subject
+		)
+end
+
+---------------------------------------------------------------------
+-- INTERNET RESPONSE
+---------------------------------------------------------------------
+
+local function buildInternetResponse(result)
+
+	if not result
+		or not result.extract
+	then
+
+		return nil
+	end
+
+	local text =
+		result.extract
+
+	-------------------------------------------------------------
+	-- DON'T SEND A GIANT WIKIPEDIA ARTICLE
+	-------------------------------------------------------------
+
+	if #text > 500 then
+
+		text =
+			string.sub(
+				text,
+				1,
+				500
+			)
+
+		local shorter =
+			string.match(
+				text,
+				"^(.*[%p])"
+			)
+
+		if shorter
+			and #shorter > 50
+		then
+
+			text = shorter
+
+		else
+
+			text =
+				text
+				..
+				"..."
+		end
+	end
+
+	return text
+end
+
+---------------------------------------------------------------------
+-- LOCAL KNOWLEDGE CONTEXT
+--
+-- This section deliberately DOES NOT return an answer.
+-- Learned facts are appended to the neural input instead so the
+-- network gets to decide what response vector to produce.
+---------------------------------------------------------------------
+
+local function buildLocalKnowledgeContext(text)
+
+	local pieces = {}
+	local used = {}
+
+	local function addPiece(value)
+
+		value =
+			cleanText(
+				tostring(value or "")
+			)
+
+		if value ~= ""
+			and not used[value]
+		then
+			used[value] = true
+			table.insert(pieces, value)
+		end
+	end
+
+	-------------------------------------------------------------
+	-- Meaning question: "what does yo mean?"
+	-------------------------------------------------------------
+
+	local meaningSubject =
+		parseMeaningQuestion(
+			text
+		)
+
+	if meaningSubject then
+
+		addPiece(meaningSubject)
+
+		local definitions =
+			getDefinition(
+				meaningSubject
+			)
+
+		if definitions then
+			for _, definition in ipairs(definitions) do
+				addPiece(definition)
+			end
+		end
+	end
+
+	-------------------------------------------------------------
+	-- "what is dog?"
+	-------------------------------------------------------------
+
+	local whatIsSubject =
+		parseWhatIsQuestion(
+			text
+		)
+
+	if whatIsSubject then
+
+		addPiece(whatIsSubject)
+
+		local types =
+			getRelationTargets(
+				whatIsSubject,
+				"is_a",
+				10
+			)
+
+		for _, typeWord in ipairs(types) do
+			addPiece(typeWord)
+		end
+
+		local meanings =
+			getDefinition(
+				whatIsSubject
+			)
+
+		if meanings then
+			for _, meaning in ipairs(meanings) do
+				addPiece(meaning)
+			end
+		end
+	end
+
+	-------------------------------------------------------------
+	-- A single learned word such as "yo" can still provide its
+	-- meaning to the neural network without hardcoding a reply.
+	-------------------------------------------------------------
+
+	local singleWord =
+		getSingleWord(
+			text
+		)
+
+	if singleWord then
+
+		local definitions =
+			getDefinition(
+				singleWord
+			)
+
+		if definitions then
+			addPiece(singleWord)
+
+			for _, definition in ipairs(definitions) do
+				addPiece(definition)
+			end
+		end
+	end
+
+	if #pieces == 0 then
+		return ""
+	end
+
+	return table.concat(pieces, " ")
+end
+
+---------------------------------------------------------------------
+-- RUN TEACHER SAFELY
+--
+-- Teacher is optional.
+-- We run it without blocking local learning where possible.
+---------------------------------------------------------------------
+
+local function teachAsync(
+	text,
+	internetContext
+)
+
+	if not GEMINI_ENABLED then
+		return
+	end
+
+	if not getGeminiAPIKey() then
+		return
+	end
+
+	task.spawn(
+		function()
+
+			runGeminiTeacher(
+				text,
+				internetContext
+			)
+
+			saveBrain(false)
+
+		end
+	)
+end
+
+---------------------------------------------------------------------
+-- HANDLE
+---------------------------------------------------------------------
+
+local function handleUserMessage(
+	player,
+	text
+)
+
+	text =
+		cleanText(
+			text
+		)
+
+	if text == "" then
+		return nil
+	end
+
+	print(
+		"[BRAIN]",
+		player.Name,
+		">",
+		text
+	)
+
+	-----------------------------------------------------------------
+	-- LANGUAGE PARSING
+	-----------------------------------------------------------------
+
+	local parsed =
+		safeCall(
+			"Language.Parse",
+			Language.Parse,
+			text
+		)
+		or {
+			intent = "statement",
+			normalized = string.lower(text),
+			contentWords = {}
+		}
+
+	print(
+		"[LANGUAGE]",
+		"intent:",
+		parsed.intent,
+		"subject:",
+		tostring(parsed.subject),
+		"relation:",
+		tostring(parsed.relation)
+	)
+
+	-----------------------------------------------------------------
+	-- USER WORKING MEMORY
+	-----------------------------------------------------------------
+
+	safeCall(
+		"WorkingMemory.UpdateUser",
+		WorkingMemory.UpdateUser,
+		text
+	)
+
+	-----------------------------------------------------------------
+	-- EMOTION
+	-----------------------------------------------------------------
+
+	safeCall(
+		"Emotion.UpdateFromText",
+		Emotion.UpdateFromText,
+		text
+	)
+
+	safeCall(
+		"Emotion.Decay",
+		Emotion.Decay,
+		0.1
+	)
+
+	-----------------------------------------------------------------
+	-- DIRECT MATH
+	--
+	-- Math stays deterministic because it is a calculator operation,
+	-- not a canned conversational fallback.
+	-----------------------------------------------------------------
+
+	local mathAnswer =
+		solveMath(
+			text
+		)
+
+	if mathAnswer then
+
+		safeCall(
+			"WorkingMemory.UpdateAI",
+			WorkingMemory.UpdateAI,
+			mathAnswer
+		)
+
+		teachAsync(
+			text,
+			nil
+		)
+
+		print(
+			"[BRAIN RESPONSE]",
+			mathAnswer
+		)
+
+		return mathAnswer
+	end
+
+	-----------------------------------------------------------------
+	-- LEARN LOCAL STRUCTURED FACTS
+	--
+	-- IMPORTANT: we DO NOT immediately respond with "I understand"
+	-- or another prewritten sentence. The information is learned and
+	-- then supplied to the neural network as context.
+	-----------------------------------------------------------------
+
+	local learnedFact =
+		learnStructuredFact(
+			text
+		)
+
+	-----------------------------------------------------------------
+	-- EXTENDED LANGUAGE FACTS
+	-- Covers has/can_do/likes/part_of/used_for/located_in/causes.
+	-----------------------------------------------------------------
+
+	if not learnedFact and Language.ExtractFact then
+		local languageFact =
+			safeCall(
+				"Language.ExtractFact",
+				Language.ExtractFact,
+				text
+			)
+
+		if languageFact
+			and languageFact.subject
+			and languageFact.relation
+			and typeof(languageFact.targets) == "table"
+		then
+			for _, target in ipairs(languageFact.targets) do
+				safeCall(
+					"Memory.LearnRelation",
+					Memory.LearnRelation,
+					languageFact.subject,
+					languageFact.relation,
+					target,
+					2
+				)
+
+				if Memory.Associate then
+					safeCall(
+						"Memory.Associate",
+						Memory.Associate,
+						languageFact.subject,
+						target,
+						0.2
+					)
+				end
+			end
+
+			learnedFact = languageFact
+		end
+	end
+
+	if learnedFact then
+		print(
+			"[LOCAL FACT LEARNED]",
+			learnedFact.subject,
+			learnedFact.relation,
+			table.concat(learnedFact.targets, ", ")
+		)
+	end
+
+	-----------------------------------------------------------------
+	-- KNOWLEDGE MODULE
+	-----------------------------------------------------------------
+
+	safeCall(
+		"Knowledge.InferMeaning",
+		Knowledge.InferMeaning,
+		text
+	)
+
+	-----------------------------------------------------------------
+	-- THINKING PLAN + LOCAL KNOWLEDGE PREVIEW
+	-----------------------------------------------------------------
+
+	local localKnowledgePreview =
+		buildLocalKnowledgeContext(
+			text
+		)
+
+	local thoughtPlan =
+		safeCall(
+			"Thinking.Plan",
+			Thinking.Plan,
+			parsed,
+			{
+				hasLocalKnowledge = localKnowledgePreview ~= "",
+				internetEnabled = INTERNET_ENABLED
+			}
+		)
+		or {
+			useInternet = shouldUseInternet(text),
+			searchTerm = extractSearchTerm(text),
+			intent = parsed.intent
+		}
+
+	print(
+		"[THINKING]",
+		"reason:",
+		tostring(thoughtPlan.reason),
+		"internet:",
+		tostring(thoughtPlan.useInternet)
+	)
+
+	-----------------------------------------------------------------
+	-- INTERNET RESEARCH
+	-- Internet is used only when the thinking plan says local
+	-- knowledge is insufficient for a factual question.
+	-----------------------------------------------------------------
+
+	local internetResult = nil
+
+	if Thinking.ShouldUseInternet(thoughtPlan) then
+
+		local searchTerm =
+			thoughtPlan.searchTerm
+			or (Language.ExtractSearchTerm and Language.ExtractSearchTerm(parsed))
+			or extractSearchTerm(text)
+
+		print(
+			"[INTERNET SEARCH]",
+			searchTerm
+		)
+
+		internetResult =
+			internetLookup(
+				searchTerm
+			)
+	end
+
+	-----------------------------------------------------------------
+	-- GEMINI TEACHER
+	--
+	-- Gemini ONLY teaches:
+	--   1. interpretation
+	--   2. factual relations
+	--   3. neural examples
+	--
+	-- Gemini NEVER writes the returned response.
+	-----------------------------------------------------------------
+
+	local teacherData = {
+		interpretation = "",
+		facts = "",
+		training = ""
+	}
+
+	if getGeminiAPIKey()
+		and canUseGemini()
+	then
+
+		teacherData =
+			runGeminiTeacher(
+				text,
+				internetResult
+			)
+			or teacherData
+
+	else
+
+		if GEMINI_ENABLED
+			and not getGeminiAPIKey()
+		then
+			print(
+				"[GEMINI] Teacher disabled - ServerStorage.GeminiAPIKey missing."
+			)
+		end
+	end
+
+	-----------------------------------------------------------------
+	-- BUILD THE LOCAL BRAIN INPUT
+	-----------------------------------------------------------------
+
+	local brainInput = text
+
+	-------------------------------------------------------------
+	-- LOCAL LEARNED KNOWLEDGE
+	-------------------------------------------------------------
+
+	local localKnowledge =
+		localKnowledgePreview
+
+	if localKnowledge ~= "" then
+		brainInput =
+			brainInput
+			..
+			" "
+			..
+			localKnowledge
+	end
+
+	-------------------------------------------------------------
+	-- LANGUAGE / THINKING STATE
+	--
+	-- IMPORTANT:
+	-- parsed/thoughtPlan stay as Lua state only.
+	-- Do NOT convert intent_, thought_, topic_, relation_, etc.
+	-- into dictionary words, otherwise the neural decoder can
+	-- learn them and literally say them.
+	-------------------------------------------------------------
+
+	-------------------------------------------------------------
+	-- JUST-LEARNED STRUCTURED FACT
+	-------------------------------------------------------------
+
+	if learnedFact then
+
+		brainInput =
+			brainInput
+			..
+			" "
+			..
+			tostring(learnedFact.subject)
+			..
+			" "
+			..
+			tostring(learnedFact.relation)
+			..
+			" "
+			..
+			table.concat(
+				learnedFact.targets,
+				" "
+			)
+	end
+
+	-------------------------------------------------------------
+	-- GEMINI'S INTERPRETATION IS TRAINING/SEMANTIC CONTEXT ONLY
+	-------------------------------------------------------------
+
+	if teacherData.interpretation ~= "" then
+		brainInput =
+			brainInput
+			..
+			" "
+			..
+			teacherData.interpretation
+	end
+
+	-------------------------------------------------------------
+	-- EXTRACTED FACTS CAN ALSO HELP THE INPUT VECTOR
+	-------------------------------------------------------------
+
+	if teacherData.facts ~= ""
+		and string.upper(cleanText(teacherData.facts)) ~= "NONE"
+	then
+		brainInput =
+			brainInput
+			..
+			" "
+			..
+			string.gsub(
+				teacherData.facts,
+				"|",
+				" "
+			)
+	end
+
+	-------------------------------------------------------------
+	-- INTERNET INFORMATION IS INPUT CONTEXT, NOT THE FINAL ANSWER
+	-------------------------------------------------------------
+
+	if internetResult
+		and internetResult.extract
+	then
+
+		local internetContext =
+			cleanText(
+				internetResult.extract
+			)
+
+		if #internetContext > 500 then
+			internetContext =
+				string.sub(
+					internetContext,
+					1,
+					500
+				)
+		end
+
+		brainInput =
+			brainInput
+			..
+			" "
+			..
+			internetContext
+	end
+
+	-------------------------------------------------------------
+	-- WORKING MEMORY CONTEXT
+	--
+	-- WorkingMemory still tracks the conversation through
+	-- UpdateUser/UpdateAI, but we intentionally DO NOT call
+	-- BuildBrainInput here. The old version re-added the current
+	-- prompt plus older token history and drowned out the actual
+	-- message for this small neural network.
+	-------------------------------------------------------------
+
+	print(
+		"[BRAIN INPUT]",
+		brainInput
+	)
+
+	-----------------------------------------------------------------
+	-- NEXT-WORD GENERATION
+	--
+	-- Input vectors are now created inside generateNeuralResponse()
+	-- for every generated word.
+	-----------------------------------------------------------------
+
+	-----------------------------------------------------------------
+	-- NORMAL MEMORY LEARNING
+	-----------------------------------------------------------------
+
+	learnNormalMessage()
+
+	-----------------------------------------------------------------
+	-- STATE
+	-----------------------------------------------------------------
+
+	local wmState =
+		safeCall(
+			"WorkingMemory.GetState",
+			WorkingMemory.GetState
+		)
+		or {}
+
+	-----------------------------------------------------------------
+	-- THE RESPONSE COMES FROM THE LOCAL NEURAL OUTPUT
+	-----------------------------------------------------------------
+
+	local response =
+		generateNeuralResponse(
+			brainInput,
+			wmState
+		)
+
+	-----------------------------------------------------------------
+	-- NO CANNED RESPONSE FALLBACK.
+	--
+	-- If the network genuinely has no decoded prediction yet, return
+	-- an empty string. This makes it obvious that it still needs
+	-- training instead of pretending it understood with canned text.
+	-----------------------------------------------------------------
+
+	if not response
+		or response == ""
+	then
+		response = ""
+	end
+
+	-----------------------------------------------------------------
+	-- WORKING MEMORY
+	-----------------------------------------------------------------
+
+	if response ~= "" then
+		safeCall(
+			"WorkingMemory.UpdateAI",
+			WorkingMemory.UpdateAI,
+			response
+		)
+	end
+
+	-----------------------------------------------------------------
+	-- SAVE
+	-----------------------------------------------------------------
+
+	saveBrain(false)
+
+	-----------------------------------------------------------------
+	-- LOG
+	-----------------------------------------------------------------
+
+	if response ~= "" then
+		print(
+			"[BRAIN RESPONSE]",
+			response
+		)
+	else
+		print(
+			"[BRAIN RESPONSE] <no learned neural response yet>"
+		)
+	end
+
+	return response
+end
+
+---------------------------------------------------------------------
+-- REMOTE
+---------------------------------------------------------------------
+
+Remote.OnServerInvoke =
+	function(player, text)
+
+		if playerBusy[player] then
+
+			return
+			"I'm already thinking."
+		end
+
+		playerBusy[player] =
+		true
+
+		local ok, result =
+		pcall(
+			function()
+
+				return
+				handleUserMessage(
+					player,
+					text
+				)
+
+			end
+		)
+
+		playerBusy[player] =
+		nil
+
+		if not ok then
+
+			warn(
+				"[BRAIN ERROR]",
+				result
+			)
+
+			return
+			"SERVER ERROR: "
+			..
+			tostring(
+				result
+			)
+		end
+
+		return result
+	end
+
+---------------------------------------------------------------------
+-- PLAYER LEAVE
+---------------------------------------------------------------------
+
+Players.PlayerRemoving:Connect(
+	function(player)
+
+		playerBusy[player] =
+			nil
+
+		saveBrain(false)
+
+	end
+)
+
+---------------------------------------------------------------------
+-- AUTO SAVE
+---------------------------------------------------------------------
+
+task.spawn(
+	function()
+
+		while true do
+
+			task.wait(
+				SAVE_INTERVAL
+			)
+
+			saveBrain(false)
+
+		end
+	end
+)
+
+---------------------------------------------------------------------
+-- CLOSE
+---------------------------------------------------------------------
+
+game:BindToClose(
+	function()
+
+		saveBrain(true)
+
+		task.wait(
+			1
+		)
+
+	end
+)
+
+---------------------------------------------------------------------
+
+print(
+	"[BRAIN] BrainController NEXT-WORD + Clean Input + Language + Thinking running."
+)
