@@ -1,0 +1,139 @@
+--// ThinkingControllerModule.lua
+--// Chooses what kind of reasoning/retrieval the brain should perform.
+--// It DOES NOT contain canned chat answers and DOES NOT replace the neural network.
+
+local Thinking = {}
+
+local INTERNET_QUESTION_TYPES = {
+	what = true,
+	who = true,
+	where = true,
+	when = true,
+	why = true,
+	how = true,
+	which = true,
+	general = true,
+}
+
+local function clean(text)
+	text = tostring(text or "")
+	text = string.gsub(text, "[%c]", " ")
+	text = string.gsub(text, "%s+", " ")
+	text = string.gsub(text, "^%s+", "")
+	text = string.gsub(text, "%s+$", "")
+	return text
+end
+
+function Thinking.Plan(parsed, options)
+	parsed = parsed or {}
+	options = options or {}
+
+	local hasLocalKnowledge = options.hasLocalKnowledge == true
+	local internetEnabled = options.internetEnabled ~= false
+
+	local plan = {
+		intent = parsed.intent or "statement",
+		subject = parsed.subject,
+		relation = parsed.relation,
+		topic = parsed.topic,
+		questionType = parsed.questionType,
+
+		useMemory = true,
+		useKnowledge = true,
+		useNeural = true,
+		useInternet = false,
+
+		searchTerm = nil,
+		reason = "local_reasoning",
+	}
+
+	if parsed.intent == "empty" then
+		plan.useMemory = false
+		plan.useKnowledge = false
+		plan.useNeural = false
+		plan.reason = "empty"
+		return plan
+	end
+
+	if parsed.intent == "math" then
+		plan.useInternet = false
+		plan.reason = "deterministic_math"
+		return plan
+	end
+
+	if parsed.intent == "teaching" then
+		plan.useInternet = false
+		plan.reason = "learn_user_fact"
+		return plan
+	end
+
+	if parsed.intent == "greeting" then
+		-- Greeting behavior should be learned through neural training,
+		-- not a hardcoded reply.
+		plan.useInternet = false
+		plan.reason = "learned_social_response"
+		return plan
+	end
+
+	if parsed.intent == "question" then
+		plan.searchTerm = parsed.subject or parsed.topic
+
+		if internetEnabled
+			and not hasLocalKnowledge
+			and INTERNET_QUESTION_TYPES[parsed.questionType or "general"]
+		then
+			plan.useInternet = true
+			plan.reason = "missing_local_factual_knowledge"
+		else
+			plan.reason = hasLocalKnowledge
+				and "local_knowledge_available"
+				or "local_question"
+		end
+	end
+
+	return plan
+end
+
+function Thinking.BuildContext(parsed, plan, localKnowledge)
+	parsed = parsed or {}
+	plan = plan or {}
+
+	local pieces = {}
+
+	local function add(value)
+		value = clean(value)
+		if value ~= "" then
+			table.insert(pieces, value)
+		end
+	end
+
+	add("thought_intent_" .. tostring(plan.intent or parsed.intent or "unknown"))
+
+	if plan.questionType then
+		add("thought_question_" .. tostring(plan.questionType))
+	end
+
+	if plan.subject then
+		add("thought_subject_" .. string.gsub(tostring(plan.subject), "%s+", "_"))
+	end
+
+	if plan.relation then
+		add("thought_relation_" .. tostring(plan.relation))
+	end
+
+	if plan.reason then
+		add("thought_reason_" .. tostring(plan.reason))
+	end
+
+	if localKnowledge and clean(localKnowledge) ~= "" then
+		add("thought_has_local_knowledge")
+	end
+
+	return table.concat(pieces, " ")
+end
+
+function Thinking.ShouldUseInternet(plan)
+	return plan and plan.useInternet == true
+end
+
+return Thinking
