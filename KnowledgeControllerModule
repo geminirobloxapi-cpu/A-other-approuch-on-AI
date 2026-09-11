@@ -1,0 +1,1152 @@
+--// KnowledgeControllerModule.lua
+
+local Knowledge = {}
+
+---------------------------------------------------------------------
+-- CONFIG
+---------------------------------------------------------------------
+
+local MAX_HINTS = 8
+local MAX_WORDS = 100
+
+---------------------------------------------------------------------
+-- KNOWLEDGE CATEGORIES
+---------------------------------------------------------------------
+
+Knowledge.Categories = {
+
+	number = {
+
+		digits = {
+			"0","1","2","3","4","5","6","7","8","9"
+		},
+
+		even = {
+			"0","2","4","6","8"
+		},
+
+		odd = {
+			"1","3","5","7","9"
+		},
+
+		magnitude = {
+
+			small = {
+				"1","2","3"
+			},
+
+			medium = {
+				"4","5","6"
+			},
+
+			large = {
+				"7","8","9"
+			}
+		}
+	},
+
+	emotion = {
+
+		positive = {
+			"happy",
+			"happiness",
+			"love",
+			"loving",
+			"excited",
+			"exciting",
+			"calm",
+			"good",
+			"great",
+			"awesome",
+			"amazing",
+			"fun",
+			"joy",
+			"glad",
+			"hope",
+			"hopeful"
+		},
+
+		negative = {
+			"sad",
+			"sadness",
+			"angry",
+			"anger",
+			"fear",
+			"afraid",
+			"scared",
+			"hate",
+			"upset",
+			"bad",
+			"terrible",
+			"worried",
+			"worry",
+			"annoyed"
+		},
+
+		neutral = {
+			"okay",
+			"ok",
+			"fine",
+			"normal",
+			"neutral",
+			"average"
+		}
+	},
+
+	objects = {
+
+		living = {
+			"person",
+			"human",
+			"people",
+			"dog",
+			"cat",
+			"animal",
+			"tree",
+			"plant",
+			"bird",
+			"fish",
+			"friend"
+		},
+
+		nonliving = {
+			"rock",
+			"car",
+			"computer",
+			"house",
+			"phone",
+			"table",
+			"chair",
+			"screen",
+			"game",
+			"robot",
+			"machine",
+			"server"
+		}
+	},
+
+	actions = {
+
+		movement = {
+			"go",
+			"stop",
+			"run",
+			"walk",
+			"move",
+			"jump",
+			"sit",
+			"stand",
+			"turn",
+			"follow"
+		},
+
+		thinking = {
+			"think",
+			"thinking",
+			"know",
+			"learn",
+			"learning",
+			"remember",
+			"remembering",
+			"understand",
+			"understanding",
+			"wonder",
+			"believe",
+			"guess"
+		},
+
+		communication = {
+			"talk",
+			"talking",
+			"say",
+			"saying",
+			"ask",
+			"asking",
+			"reply",
+			"respond",
+			"tell",
+			"speak",
+			"message",
+			"chat"
+		},
+
+		creation = {
+			"make",
+			"create",
+			"build",
+			"write",
+			"draw",
+			"generate",
+			"design",
+			"code",
+			"program"
+		}
+	},
+
+	time = {
+
+		past = {
+			"yesterday",
+			"before",
+			"previous",
+			"earlier",
+			"past",
+			"ago"
+		},
+
+		present = {
+			"now",
+			"today",
+			"currently",
+			"present"
+		},
+
+		future = {
+			"tomorrow",
+			"later",
+			"future",
+			"soon",
+			"eventually"
+		}
+	},
+
+	question = {
+
+		identity = {
+			"who",
+			"what"
+		},
+
+		location = {
+			"where"
+		},
+
+		time = {
+			"when"
+		},
+
+		reason = {
+			"why"
+		},
+
+		method = {
+			"how"
+		}
+	}
+}
+
+---------------------------------------------------------------------
+-- RELATIONS
+---------------------------------------------------------------------
+
+Knowledge.Relations = {
+
+	bigger = {
+		["0"] = "1",
+		["1"] = "2",
+		["2"] = "3",
+		["3"] = "4",
+		["4"] = "5",
+		["5"] = "6",
+		["6"] = "7",
+		["7"] = "8",
+		["8"] = "9"
+	},
+
+	smaller = {
+		["9"] = "8",
+		["8"] = "7",
+		["7"] = "6",
+		["6"] = "5",
+		["5"] = "4",
+		["4"] = "3",
+		["3"] = "2",
+		["2"] = "1",
+		["1"] = "0"
+	},
+
+	opposite = {
+
+		happy = "sad",
+		sad = "happy",
+
+		love = "hate",
+		hate = "love",
+
+		excited = "calm",
+
+		big = "small",
+		small = "big",
+
+		fast = "slow",
+		slow = "fast",
+
+		hot = "cold",
+		cold = "hot",
+
+		light = "dark",
+		dark = "light",
+
+		yes = "no",
+		no = "yes",
+
+		up = "down",
+		down = "up",
+
+		left = "right",
+		right = "left",
+
+		start = "stop",
+		stop = "start"
+	},
+
+	similar = {
+
+		happy = {
+			"glad",
+			"joy",
+			"excited"
+		},
+
+		sad = {
+			"upset",
+			"unhappy"
+		},
+
+		angry = {
+			"annoyed",
+			"upset"
+		},
+
+		think = {
+			"know",
+			"learn",
+			"understand",
+			"wonder"
+		},
+
+		move = {
+			"go",
+			"run",
+			"walk"
+		},
+
+		talk = {
+			"say",
+			"speak",
+			"chat"
+		},
+
+		create = {
+			"make",
+			"build",
+			"design"
+		},
+
+		computer = {
+			"machine",
+			"pc"
+		}
+	}
+}
+
+---------------------------------------------------------------------
+-- CATEGORY DESCRIPTIONS
+---------------------------------------------------------------------
+
+Knowledge.Templates = {
+
+	number = {
+		default = "The message contains a number or quantity.",
+
+		digits = "I detected a numerical value.",
+		even = "I detected an even number.",
+		odd = "I detected an odd number.",
+
+		small = "The number appears relatively small.",
+		medium = "The number appears medium-sized.",
+		large = "The number appears relatively large."
+	},
+
+	emotion = {
+		default = "The message contains emotional meaning.",
+
+		positive = "The emotional meaning appears positive.",
+		negative = "The emotional meaning appears negative.",
+		neutral = "The emotional meaning appears neutral."
+	},
+
+	objects = {
+		default = "The message appears to reference an object or entity.",
+
+		living = "A living entity is being referenced.",
+		nonliving = "A non-living object is being referenced."
+	},
+
+	actions = {
+		default = "The message describes an action.",
+
+		movement = "The message contains an action involving movement.",
+		thinking = "The message contains an action involving thought or knowledge.",
+		communication = "The message contains an action involving communication.",
+		creation = "The message contains an action involving creating or building something."
+	},
+
+	time = {
+		default = "The message references time.",
+
+		past = "The message appears to reference the past.",
+		present = "The message appears to reference the present.",
+		future = "The message appears to reference the future."
+	},
+
+	question = {
+		default = "The message appears to contain a question.",
+
+		identity = "The user may be asking about identity or information.",
+		location = "The user may be asking about a location.",
+		time = "The user may be asking about time.",
+		reason = "The user may be asking for a reason.",
+		method = "The user may be asking how something works."
+	}
+}
+
+---------------------------------------------------------------------
+-- WORD NORMALIZATION
+---------------------------------------------------------------------
+
+local function normalizeWord(word)
+
+	if typeof(word) ~= "string" then
+		return ""
+	end
+
+	word = string.lower(word)
+
+	-- Remove punctuation around words.
+	word = string.gsub(word, "^%p+", "")
+	word = string.gsub(word, "%p+$", "")
+
+	return word
+end
+
+---------------------------------------------------------------------
+-- TOKENIZE
+---------------------------------------------------------------------
+
+function Knowledge.Tokenize(text)
+
+	local words = {}
+
+	if typeof(text) ~= "string" then
+		return words
+	end
+
+	for word in string.gmatch(string.lower(text), "[%w']+") do
+
+		word = normalizeWord(word)
+
+		if word ~= "" then
+			table.insert(words, word)
+		end
+
+		if #words >= MAX_WORDS then
+			break
+		end
+	end
+
+	return words
+end
+
+---------------------------------------------------------------------
+-- SEARCH NESTED CATEGORY
+---------------------------------------------------------------------
+
+local function searchCategoryTable(data, word, path)
+
+	for name, value in pairs(data) do
+
+		if typeof(value) == "table" then
+
+			---------------------------------------------------------
+			-- Check whether this is a word list
+			---------------------------------------------------------
+
+			local appearsToBeList = (#value > 0)
+
+			if appearsToBeList then
+
+				for _, item in ipairs(value) do
+
+					if normalizeWord(item) == word then
+
+						return {
+							category = path[1],
+							subcategory = name,
+							path = table.concat(path, ".") .. "." .. name
+						}
+
+					end
+				end
+
+			else
+
+				-----------------------------------------------------
+				-- Nested category
+				-----------------------------------------------------
+
+				local newPath = table.clone(path)
+				table.insert(newPath, name)
+
+				local found =
+					searchCategoryTable(
+						value,
+						word,
+						newPath
+					)
+
+				if found then
+					return found
+				end
+			end
+		end
+	end
+
+	return nil
+end
+
+---------------------------------------------------------------------
+-- GET CATEGORY
+---------------------------------------------------------------------
+
+function Knowledge.GetCategory(word)
+
+	word = normalizeWord(word)
+
+	if word == "" then
+		return nil
+	end
+
+	for categoryName, categoryData in pairs(Knowledge.Categories) do
+
+		local found =
+			searchCategoryTable(
+				categoryData,
+				word,
+				{categoryName}
+			)
+
+		if found then
+
+			return
+				found.category,
+				found.subcategory,
+				found.path
+
+		end
+	end
+
+	return nil
+end
+
+---------------------------------------------------------------------
+-- GET ALL CATEGORIES
+---------------------------------------------------------------------
+
+function Knowledge.GetCategories(word)
+
+	word = normalizeWord(word)
+
+	local results = {}
+
+	if word == "" then
+		return results
+	end
+
+	local function search(data, rootCategory, path)
+
+		for name, value in pairs(data) do
+
+			if typeof(value) == "table" then
+
+				if #value > 0 then
+
+					for _, item in ipairs(value) do
+
+						if normalizeWord(item) == word then
+
+							table.insert(results, {
+
+								category = rootCategory,
+								subcategory = name,
+								path =
+									table.concat(
+										path,
+										"."
+									)
+									.. "."
+									.. name
+							})
+
+						end
+					end
+
+				else
+
+					local newPath =
+						table.clone(path)
+
+					table.insert(
+						newPath,
+						name
+					)
+
+					search(
+						value,
+						rootCategory,
+						newPath
+					)
+				end
+			end
+		end
+	end
+
+	for categoryName, categoryData
+		in pairs(Knowledge.Categories) do
+
+		search(
+			categoryData,
+			categoryName,
+			{categoryName}
+		)
+
+	end
+
+	return results
+end
+
+---------------------------------------------------------------------
+-- RELATION LOOKUP
+---------------------------------------------------------------------
+
+function Knowledge.GetRelation(word)
+
+	word = normalizeWord(word)
+
+	if word == "" then
+		return nil
+	end
+
+	for relationName, relationData in pairs(Knowledge.Relations) do
+
+		local target =
+			relationData[word]
+
+		if target ~= nil then
+
+			return
+				relationName,
+				target
+
+		end
+	end
+
+	return nil
+end
+
+---------------------------------------------------------------------
+-- GET EVERY RELATION
+---------------------------------------------------------------------
+
+function Knowledge.GetRelations(word)
+
+	word = normalizeWord(word)
+
+	local found = {}
+
+	for relationName, relationData
+		in pairs(Knowledge.Relations) do
+
+		local target =
+			relationData[word]
+
+		if target ~= nil then
+
+			table.insert(found, {
+				relation = relationName,
+				target = target
+			})
+
+		end
+	end
+
+	return found
+end
+
+---------------------------------------------------------------------
+-- MATH DETECTION
+---------------------------------------------------------------------
+
+function Knowledge.IsMathExpression(text)
+
+	if typeof(text) ~= "string" then
+		return false
+	end
+
+	-- Remove whitespace.
+	local cleaned =
+		string.gsub(
+			text,
+			"%s+",
+			""
+		)
+
+	if cleaned == "" then
+		return false
+	end
+
+	-- Must contain at least one digit.
+	if not string.find(cleaned, "%d") then
+		return false
+	end
+
+	-- Only mathematical characters allowed.
+	return
+		string.match(
+			cleaned,
+			"^[%d%+%-%*/%%%^%(%)%.]+$"
+		)
+		~= nil
+end
+
+---------------------------------------------------------------------
+-- DETECT QUESTION
+---------------------------------------------------------------------
+
+function Knowledge.IsQuestion(text)
+
+	if typeof(text) ~= "string" then
+		return false
+	end
+
+	local lowered =
+		string.lower(text)
+
+	if string.find(text, "?", 1, true) then
+		return true
+	end
+
+	local firstWord =
+		string.match(
+			lowered,
+			"^%s*(%w+)"
+		)
+
+	if not firstWord then
+		return false
+	end
+
+	local questionWords = {
+		who = true,
+		what = true,
+		when = true,
+		where = true,
+		why = true,
+		how = true,
+
+		can = true,
+		could = true,
+
+		["do"] = true,
+		does = true,
+		did = true,
+
+		is = true,
+		are = true,
+		was = true,
+		were = true,
+
+		will = true,
+		would = true,
+
+		should = true
+	}
+
+	return
+		questionWords[firstWord]
+		== true
+end
+
+---------------------------------------------------------------------
+-- TEMPLATE LOOKUP
+---------------------------------------------------------------------
+
+local function getTemplate(category, subcategory)
+
+	local categoryTemplates =
+		Knowledge.Templates[category]
+
+	if typeof(categoryTemplates) ~= "table" then
+		return nil
+	end
+
+	return
+		categoryTemplates[subcategory]
+		or categoryTemplates.default
+end
+
+---------------------------------------------------------------------
+-- UNIQUE RESULT HELPER
+---------------------------------------------------------------------
+
+local function addUnique(results, seen, value)
+
+	if typeof(value) ~= "string" then
+		return
+	end
+
+	if value == "" then
+		return
+	end
+
+	if seen[value] then
+		return
+	end
+
+	seen[value] = true
+
+	table.insert(
+		results,
+		value
+	)
+
+end
+
+---------------------------------------------------------------------
+-- FORMAT RELATION
+---------------------------------------------------------------------
+
+local function describeRelation(word, relationName, target)
+
+	if relationName == "opposite" then
+
+		return
+			'"'
+			.. tostring(target)
+			.. '" is an opposite of "'
+			.. word
+			.. '".'
+
+	elseif relationName == "similar" then
+
+		if typeof(target) == "table" then
+
+			return
+				'Words related to "'
+				.. word
+				.. '" include '
+				.. table.concat(
+					target,
+					", "
+				)
+				.. "."
+
+		end
+
+	elseif relationName == "bigger" then
+
+		return
+			tostring(target)
+			.. " is numerically larger than "
+			.. word
+			.. "."
+
+	elseif relationName == "smaller" then
+
+		return
+			tostring(target)
+			.. " is numerically smaller than "
+			.. word
+			.. "."
+
+	end
+
+	return
+		'"'
+		.. word
+		.. '" has a '
+		.. relationName
+		.. " relation to "
+		.. tostring(target)
+		.. "."
+end
+
+---------------------------------------------------------------------
+-- INFER MEANING
+---------------------------------------------------------------------
+
+function Knowledge.InferMeaning(text)
+
+	local results = {}
+	local seen = {}
+
+	if typeof(text) ~= "string" then
+		return results
+	end
+
+	if text == "" then
+		return results
+	end
+
+	-----------------------------------------------------------------
+	-- Math
+	-----------------------------------------------------------------
+
+	if Knowledge.IsMathExpression(text) then
+
+		addUnique(
+			results,
+			seen,
+			"This looks like a mathematical expression."
+		)
+
+	end
+
+	-----------------------------------------------------------------
+	-- Question
+	-----------------------------------------------------------------
+
+	if Knowledge.IsQuestion(text) then
+
+		addUnique(
+			results,
+			seen,
+			"The user appears to be asking a question."
+		)
+
+	end
+
+	-----------------------------------------------------------------
+	-- Words
+	-----------------------------------------------------------------
+
+	local words =
+		Knowledge.Tokenize(text)
+
+	for _, word in ipairs(words) do
+
+		-------------------------------------------------------------
+		-- Categories
+		-------------------------------------------------------------
+
+		local categories =
+			Knowledge.GetCategories(word)
+
+		for _, info in ipairs(categories) do
+
+			local description =
+				getTemplate(
+					info.category,
+					info.subcategory
+				)
+
+			if description then
+
+				addUnique(
+					results,
+					seen,
+					description
+				)
+
+			end
+		end
+
+		-------------------------------------------------------------
+		-- Relations
+		-------------------------------------------------------------
+
+		local relations =
+			Knowledge.GetRelations(word)
+
+		for _, relationInfo in ipairs(relations) do
+
+			local description =
+				describeRelation(
+					word,
+					relationInfo.relation,
+					relationInfo.target
+				)
+
+			addUnique(
+				results,
+				seen,
+				description
+			)
+
+		end
+
+		-------------------------------------------------------------
+		-- Prevent gigantic result tables
+		-------------------------------------------------------------
+
+		if #results >= MAX_HINTS then
+			break
+		end
+
+	end
+
+	-----------------------------------------------------------------
+	-- Limit output
+	-----------------------------------------------------------------
+
+	while #results > MAX_HINTS do
+		table.remove(results)
+	end
+
+	return results
+end
+
+---------------------------------------------------------------------
+-- ANALYZE TEXT
+---------------------------------------------------------------------
+
+function Knowledge.Analyze(text)
+
+	local analysis = {
+
+		words = {},
+		categories = {},
+		relations = {},
+		isQuestion = false,
+		isMath = false,
+		hints = {}
+	}
+
+	if typeof(text) ~= "string" then
+		return analysis
+	end
+
+	analysis.words =
+		Knowledge.Tokenize(text)
+
+	analysis.isQuestion =
+		Knowledge.IsQuestion(text)
+
+	analysis.isMath =
+		Knowledge.IsMathExpression(text)
+
+	-----------------------------------------------------------------
+	-- Analyze each word
+	-----------------------------------------------------------------
+
+	for _, word in ipairs(analysis.words) do
+
+		local categories =
+			Knowledge.GetCategories(word)
+
+		if #categories > 0 then
+
+			analysis.categories[word] =
+				categories
+
+		end
+
+		local relations =
+			Knowledge.GetRelations(word)
+
+		if #relations > 0 then
+
+			analysis.relations[word] =
+				relations
+
+		end
+
+	end
+
+	analysis.hints =
+		Knowledge.InferMeaning(text)
+
+	return analysis
+end
+
+---------------------------------------------------------------------
+-- DEBUG
+---------------------------------------------------------------------
+
+function Knowledge.DebugAnalyze(text)
+
+	local analysis =
+		Knowledge.Analyze(text)
+
+	print("---------- KNOWLEDGE ----------")
+
+	print(
+		"Text:",
+		text
+	)
+
+	print(
+		"Question:",
+		analysis.isQuestion
+	)
+
+	print(
+		"Math:",
+		analysis.isMath
+	)
+
+	print(
+		"Words:",
+		table.concat(
+			analysis.words,
+			", "
+		)
+	)
+
+	for word, categories
+		in pairs(analysis.categories) do
+
+		for _, category
+			in ipairs(categories) do
+
+			print(
+				"[CATEGORY]",
+				word,
+				category.path
+			)
+
+		end
+	end
+
+	for word, relations
+		in pairs(analysis.relations) do
+
+		for _, relation
+			in ipairs(relations) do
+
+			print(
+				"[RELATION]",
+				word,
+				relation.relation,
+				relation.target
+			)
+
+		end
+	end
+
+	for _, hint
+		in ipairs(analysis.hints) do
+
+		print(
+			"[HINT]",
+			hint
+		)
+
+	end
+
+	print("-------------------------------")
+
+	return analysis
+end
+
+return Knowledge
