@@ -1,0 +1,1010 @@
+--// WorkMemoryControllerModule.lua
+
+local WorkingMemory = {}
+
+---------------------------------------------------------------------
+-- CONFIG
+---------------------------------------------------------------------
+
+local MAX_HISTORY = 12
+local MAX_TOPIC_WORDS = 8
+local MAX_IMPORTANT_WORDS = 20
+
+---------------------------------------------------------------------
+-- STOP WORDS
+---------------------------------------------------------------------
+
+local STOP_WORDS = {
+
+	["a"] = true,
+	["an"] = true,
+	["the"] = true,
+
+	["and"] = true,
+	["or"] = true,
+	["but"] = true,
+
+	["of"] = true,
+	["to"] = true,
+	["in"] = true,
+	["on"] = true,
+	["at"] = true,
+	["for"] = true,
+	["from"] = true,
+	["with"] = true,
+
+	["is"] = true,
+	["are"] = true,
+	["was"] = true,
+	["were"] = true,
+
+	["be"] = true,
+	["been"] = true,
+	["being"] = true,
+
+	["it"] = true,
+	["its"] = true,
+
+	["this"] = true,
+	["that"] = true,
+	["these"] = true,
+	["those"] = true,
+
+	["i"] = true,
+	["me"] = true,
+	["my"] = true,
+
+	["you"] = true,
+	["your"] = true,
+
+	["we"] = true,
+	["our"] = true,
+
+	["they"] = true,
+	["their"] = true,
+
+	["he"] = true,
+	["she"] = true,
+
+	["what"] = true,
+	["when"] = true,
+	["where"] = true,
+	["why"] = true,
+	["how"] = true,
+
+	["do"] = true,
+	["does"] = true,
+	["did"] = true,
+
+	["can"] = true,
+	["could"] = true,
+	["would"] = true,
+	["should"] = true,
+
+	["will"] = true,
+
+	["have"] = true,
+	["has"] = true,
+	["had"] = true
+}
+
+---------------------------------------------------------------------
+-- STATE
+---------------------------------------------------------------------
+
+WorkingMemory.state = {
+
+	lastUser = "",
+	lastAI = "",
+
+	topic = "",
+
+	turnCount = 0,
+
+	-------------------------------------------------------------
+	-- Conversation history
+	-------------------------------------------------------------
+
+	history = {},
+
+	-------------------------------------------------------------
+	-- Important concepts currently active in thought
+	-------------------------------------------------------------
+
+	importantWords = {},
+
+	-------------------------------------------------------------
+	-- Word frequency within recent conversation
+	-------------------------------------------------------------
+
+	wordFrequency = {},
+
+	-------------------------------------------------------------
+	-- Topic strength
+	-------------------------------------------------------------
+
+	topics = {},
+
+	-------------------------------------------------------------
+	-- Current user message tokens
+	-------------------------------------------------------------
+
+	currentWords = {},
+
+	-------------------------------------------------------------
+	-- Context string that can be fed back into CoreMemory
+	-------------------------------------------------------------
+
+	contextText = ""
+}
+
+---------------------------------------------------------------------
+-- NORMALIZE WORD
+---------------------------------------------------------------------
+
+local function normalizeWord(word)
+
+	word =
+		string.lower(
+			tostring(word or "")
+		)
+
+	word =
+		string.gsub(
+			word,
+			"^%p+",
+			""
+		)
+
+	word =
+		string.gsub(
+			word,
+			"%p+$",
+			""
+		)
+
+	return word
+end
+
+---------------------------------------------------------------------
+-- TOKENIZE
+---------------------------------------------------------------------
+
+local function tokenize(text)
+
+	local words = {}
+
+	text =
+		string.lower(
+			tostring(text or "")
+		)
+
+	for word in string.gmatch(
+		text,
+		"[%w_']+"
+		) do
+
+		word =
+			normalizeWord(word)
+
+		if word ~= "" then
+
+			table.insert(
+				words,
+				word
+			)
+
+		end
+	end
+
+	return words
+end
+
+---------------------------------------------------------------------
+-- GET CONTENT WORDS
+---------------------------------------------------------------------
+
+local function getContentWords(text)
+
+	local words =
+		tokenize(text)
+
+	local results = {}
+
+	for _, word in ipairs(words) do
+
+		if not STOP_WORDS[word] then
+
+			table.insert(
+				results,
+				word
+			)
+
+		end
+	end
+
+	return results
+end
+
+---------------------------------------------------------------------
+-- ADD HISTORY
+---------------------------------------------------------------------
+
+local function addHistory(
+	speaker,
+	text
+)
+
+	table.insert(
+		WorkingMemory.state.history,
+		{
+			speaker = speaker,
+			text = text,
+			time = os.time()
+		}
+	)
+
+	while #WorkingMemory.state.history
+		> MAX_HISTORY do
+
+		table.remove(
+			WorkingMemory.state.history,
+			1
+		)
+
+	end
+end
+
+---------------------------------------------------------------------
+-- RECALCULATE WORD FREQUENCY
+---------------------------------------------------------------------
+
+local function rebuildWordFrequency()
+
+	local frequencies = {}
+
+	for _, entry
+		in ipairs(
+			WorkingMemory.state.history
+		) do
+
+		local words =
+			getContentWords(
+				entry.text
+			)
+
+		for _, word
+			in ipairs(words) do
+
+			frequencies[word] =
+				(frequencies[word] or 0)
+				+ 1
+
+		end
+	end
+
+	WorkingMemory.state.wordFrequency =
+		frequencies
+end
+
+---------------------------------------------------------------------
+-- UPDATE TOPICS
+---------------------------------------------------------------------
+
+local function updateTopics()
+
+	local state =
+		WorkingMemory.state
+
+	local frequencies =
+		state.wordFrequency
+
+	local topicCandidates = {}
+
+	for word, count
+		in pairs(frequencies) do
+
+		table.insert(
+			topicCandidates,
+			{
+				word = word,
+				score = count
+			}
+		)
+
+	end
+
+	table.sort(
+		topicCandidates,
+
+		function(a, b)
+
+			if a.score == b.score then
+				return a.word < b.word
+			end
+
+			return
+				a.score
+				>
+			b.score
+
+		end
+	)
+
+	state.topics = {}
+
+	for i = 1,
+		math.min(
+			MAX_TOPIC_WORDS,
+			#topicCandidates
+		) do
+
+		local candidate =
+			topicCandidates[i]
+
+		state.topics[
+		candidate.word
+		] =
+			candidate.score
+	end
+
+	-------------------------------------------------------------
+	-- Strongest topic
+	-------------------------------------------------------------
+
+	if topicCandidates[1] then
+
+		state.topic =
+			topicCandidates[1].word
+
+	else
+
+		state.topic =
+			""
+	end
+end
+
+---------------------------------------------------------------------
+-- UPDATE IMPORTANT WORDS
+---------------------------------------------------------------------
+
+local function updateImportantWords()
+
+	local state =
+		WorkingMemory.state
+
+	local results = {}
+
+	for word, count
+		in pairs(
+			state.wordFrequency
+		) do
+
+		table.insert(
+			results,
+			{
+				word = word,
+				score = count
+			}
+		)
+
+	end
+
+	table.sort(
+		results,
+
+		function(a, b)
+
+			return
+				a.score
+				>
+			b.score
+
+		end
+	)
+
+	state.importantWords = {}
+
+	for i = 1,
+		math.min(
+			MAX_IMPORTANT_WORDS,
+			#results
+		) do
+
+		table.insert(
+			state.importantWords,
+			results[i].word
+		)
+
+	end
+end
+
+---------------------------------------------------------------------
+-- BUILD CONTEXT TEXT
+---------------------------------------------------------------------
+
+local function rebuildContextText()
+
+	local state =
+		WorkingMemory.state
+
+	local pieces = {}
+
+	-------------------------------------------------------------
+	-- Main topic
+	-------------------------------------------------------------
+
+	if state.topic ~= "" then
+
+		table.insert(
+			pieces,
+			state.topic
+		)
+
+	end
+
+	-------------------------------------------------------------
+	-- Important words
+	-------------------------------------------------------------
+
+	for _, word
+		in ipairs(
+			state.importantWords
+		) do
+
+		if word ~= state.topic then
+
+			table.insert(
+				pieces,
+				word
+			)
+
+		end
+
+		if #pieces >= 12 then
+			break
+		end
+	end
+
+	state.contextText =
+		table.concat(
+			pieces,
+			" "
+		)
+end
+
+---------------------------------------------------------------------
+-- REBUILD ALL WORKING MEMORY
+---------------------------------------------------------------------
+
+local function rebuildState()
+
+	rebuildWordFrequency()
+
+	updateTopics()
+
+	updateImportantWords()
+
+	rebuildContextText()
+end
+
+---------------------------------------------------------------------
+-- UPDATE USER MESSAGE
+---------------------------------------------------------------------
+
+function WorkingMemory.UpdateUser(text)
+
+	text =
+		tostring(text or "")
+
+	local state =
+		WorkingMemory.state
+
+	state.lastUser =
+		text
+
+	state.turnCount += 1
+
+	state.currentWords =
+		getContentWords(text)
+
+	addHistory(
+		"user",
+		text
+	)
+
+	rebuildState()
+end
+
+---------------------------------------------------------------------
+-- UPDATE AI MESSAGE
+---------------------------------------------------------------------
+
+function WorkingMemory.UpdateAI(text)
+
+	text =
+		tostring(text or "")
+
+	local state =
+		WorkingMemory.state
+
+	state.lastAI =
+		text
+
+	addHistory(
+		"ai",
+		text
+	)
+
+	rebuildState()
+end
+
+---------------------------------------------------------------------
+-- GET STATE
+---------------------------------------------------------------------
+
+function WorkingMemory.GetState()
+
+	return
+		WorkingMemory.state
+
+end
+
+---------------------------------------------------------------------
+-- GET TOPIC
+---------------------------------------------------------------------
+
+function WorkingMemory.GetTopic()
+
+	return
+		WorkingMemory.state.topic
+
+end
+
+---------------------------------------------------------------------
+-- GET CURRENT WORDS
+---------------------------------------------------------------------
+
+function WorkingMemory.GetCurrentWords()
+
+	return
+		table.clone(
+			WorkingMemory.state.currentWords
+		)
+
+end
+
+---------------------------------------------------------------------
+-- GET IMPORTANT WORDS
+---------------------------------------------------------------------
+
+function WorkingMemory.GetImportantWords()
+
+	return
+		table.clone(
+			WorkingMemory.state.importantWords
+		)
+
+end
+
+---------------------------------------------------------------------
+-- GET TOPICS
+---------------------------------------------------------------------
+
+function WorkingMemory.GetTopics()
+
+	local copy = {}
+
+	for topic, strength
+		in pairs(
+			WorkingMemory.state.topics
+		) do
+
+		copy[topic] =
+			strength
+
+	end
+
+	return copy
+end
+
+---------------------------------------------------------------------
+-- GET CONTEXT TEXT
+---------------------------------------------------------------------
+
+function WorkingMemory.GetContextText()
+
+	return
+		WorkingMemory.state.contextText
+
+end
+
+---------------------------------------------------------------------
+-- GET RECENT HISTORY
+---------------------------------------------------------------------
+
+function WorkingMemory.GetHistory(limit)
+
+	limit =
+		math.clamp(
+			tonumber(limit)
+			or MAX_HISTORY,
+
+			1,
+			MAX_HISTORY
+		)
+
+	local history =
+		WorkingMemory.state.history
+
+	local results = {}
+
+	local startIndex =
+		math.max(
+			1,
+			#history - limit + 1
+		)
+
+	for i = startIndex, #history do
+
+		local entry =
+			history[i]
+
+		table.insert(
+			results,
+			{
+				speaker =
+					entry.speaker,
+
+				text =
+					entry.text,
+
+				time =
+					entry.time
+			}
+		)
+
+	end
+
+	return results
+end
+
+---------------------------------------------------------------------
+-- FIND WORD IN RECENT MEMORY
+---------------------------------------------------------------------
+
+function WorkingMemory.HasRecentWord(word)
+
+	word =
+		normalizeWord(word)
+
+	if word == "" then
+		return false
+	end
+
+	return
+		WorkingMemory.state.wordFrequency[word]
+		~= nil
+end
+
+---------------------------------------------------------------------
+-- GET WORD STRENGTH
+---------------------------------------------------------------------
+
+function WorkingMemory.GetWordStrength(word)
+
+	word =
+		normalizeWord(word)
+
+	return
+		WorkingMemory.state.wordFrequency[word]
+		or 0
+end
+
+---------------------------------------------------------------------
+-- RECALL RELATED RECENT MESSAGES
+---------------------------------------------------------------------
+
+function WorkingMemory.FindMessagesContaining(
+	word,
+	limit
+)
+
+	word =
+		normalizeWord(word)
+
+	limit =
+		math.clamp(
+			tonumber(limit)
+			or 5,
+
+			1,
+			MAX_HISTORY
+		)
+
+	local results = {}
+
+	if word == "" then
+		return results
+	end
+
+	local history =
+		WorkingMemory.state.history
+
+	for i = #history, 1, -1 do
+
+		local entry =
+			history[i]
+
+		local words =
+			tokenize(
+				entry.text
+			)
+
+		for _, foundWord
+			in ipairs(words) do
+
+			if foundWord == word then
+
+				table.insert(
+					results,
+					{
+						speaker =
+							entry.speaker,
+
+						text =
+							entry.text,
+
+						time =
+							entry.time
+					}
+				)
+
+				break
+			end
+		end
+
+		if #results >= limit then
+			break
+		end
+	end
+
+	return results
+end
+
+---------------------------------------------------------------------
+-- CREATE CONTEXT VECTOR INPUT TEXT
+---------------------------------------------------------------------
+
+-- This is useful with CoreMemoryControllerModule:
+--
+-- local context =
+--     WorkingMemory.BuildBrainInput(userText)
+--
+-- local vec =
+--     Dictionary.TextToVector(context)
+
+function WorkingMemory.BuildBrainInput(
+	currentMessage
+)
+
+	currentMessage =
+		tostring(
+			currentMessage
+			or WorkingMemory.state.lastUser
+			or ""
+		)
+
+	local pieces = {}
+
+	-------------------------------------------------------------
+	-- Current message is strongest.
+	-------------------------------------------------------------
+
+	if currentMessage ~= "" then
+
+		table.insert(
+			pieces,
+			currentMessage
+		)
+
+		-- Repeat it once to give it more influence than old context.
+		table.insert(
+			pieces,
+			currentMessage
+		)
+
+	end
+
+	-------------------------------------------------------------
+	-- Current conversation topic
+	-------------------------------------------------------------
+
+	local context =
+		WorkingMemory.state.contextText
+
+	if context ~= "" then
+
+		table.insert(
+			pieces,
+			context
+		)
+
+	end
+
+	-------------------------------------------------------------
+	-- Last AI response gives continuity
+	-------------------------------------------------------------
+
+	if WorkingMemory.state.lastAI ~= "" then
+
+		table.insert(
+			pieces,
+			WorkingMemory.state.lastAI
+		)
+
+	end
+
+	return
+		table.concat(
+			pieces,
+			" "
+		)
+end
+
+---------------------------------------------------------------------
+-- SOFT DECAY
+---------------------------------------------------------------------
+
+-- Slowly decreases the importance of older topics.
+--
+-- Call once per conversation turn if desired.
+
+function WorkingMemory.Decay(
+	amount
+)
+
+	amount =
+		tonumber(amount)
+		or 0.1
+
+	amount =
+		math.clamp(
+			amount,
+			0,
+			1
+		)
+
+	local state =
+		WorkingMemory.state
+
+	for word, frequency
+		in pairs(
+			state.wordFrequency
+		) do
+
+		local newValue =
+			frequency - amount
+
+		if newValue <= 0 then
+
+			state.wordFrequency[word] =
+				nil
+
+		else
+
+			state.wordFrequency[word] =
+				newValue
+
+		end
+	end
+
+	updateTopics()
+
+	updateImportantWords()
+
+	rebuildContextText()
+end
+
+---------------------------------------------------------------------
+-- CLEAR CURRENT CONVERSATION
+---------------------------------------------------------------------
+
+function WorkingMemory.Clear()
+
+	WorkingMemory.state = {
+
+		lastUser = "",
+		lastAI = "",
+
+		topic = "",
+
+		turnCount = 0,
+
+		history = {},
+
+		importantWords = {},
+
+		wordFrequency = {},
+
+		topics = {},
+
+		currentWords = {},
+
+		contextText = ""
+	}
+end
+
+---------------------------------------------------------------------
+-- DEBUG
+---------------------------------------------------------------------
+
+function WorkingMemory.Debug()
+
+	local state =
+		WorkingMemory.state
+
+	print(
+		"========== WORKING MEMORY =========="
+	)
+
+	print(
+		"Turns:",
+		state.turnCount
+	)
+
+	print(
+		"Topic:",
+		state.topic
+	)
+
+	print(
+		"Last user:",
+		state.lastUser
+	)
+
+	print(
+		"Last AI:",
+		state.lastAI
+	)
+
+	print(
+		"Context:",
+		state.contextText
+	)
+
+	print(
+		"Important words:",
+		table.concat(
+			state.importantWords,
+			", "
+		)
+	)
+
+	print(
+		"History:"
+	)
+
+	for i, entry
+		in ipairs(
+			state.history
+		) do
+
+		print(
+			i,
+			entry.speaker,
+			entry.text
+		)
+
+	end
+
+	print(
+		"===================================="
+	)
+
+	return state
+end
+
+---------------------------------------------------------------------
+
+return WorkingMemory
