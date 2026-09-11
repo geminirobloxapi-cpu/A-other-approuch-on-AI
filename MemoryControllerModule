@@ -1,0 +1,1180 @@
+--// MemoryControllerModule.lua
+
+---------------------------------------------------------------------
+-- SERVICES
+---------------------------------------------------------------------
+
+local DataStoreService = game:GetService("DataStoreService")
+
+---------------------------------------------------------------------
+-- MODULE
+---------------------------------------------------------------------
+
+local Memory = {}
+
+---------------------------------------------------------------------
+-- DATASTORE
+---------------------------------------------------------------------
+
+local MemoryStore =
+	DataStoreService:GetDataStore(
+		"BrainMemoryV3"
+	)
+
+---------------------------------------------------------------------
+-- CONFIG
+---------------------------------------------------------------------
+
+local MAX_ASSOCIATIONS_PER_WORD = 50
+local MAX_RELATIONS_PER_TYPE = 50
+
+local DEFAULT_PATTERN_STRENGTH = 0.25
+local DEFAULT_ASSOCIATION_STRENGTH = 0.25
+local DEFAULT_RELATION_STRENGTH = 1
+
+---------------------------------------------------------------------
+-- CACHE
+---------------------------------------------------------------------
+
+Memory.cache = {
+
+	version = 3,
+
+	patterns = {},
+
+	associations = {},
+
+	relations = {},
+
+	lastSave = 0
+}
+
+---------------------------------------------------------------------
+-- NORMALIZE
+---------------------------------------------------------------------
+
+local function normalize(value)
+
+	value =
+		string.lower(
+			tostring(
+				value or ""
+			)
+		)
+
+	value =
+		string.gsub(
+			value,
+			"^%s+",
+			""
+		)
+
+	value =
+		string.gsub(
+			value,
+			"%s+$",
+			""
+		)
+
+	value =
+		string.gsub(
+			value,
+			"^%p+",
+			""
+		)
+
+	value =
+		string.gsub(
+			value,
+			"%p+$",
+			""
+		)
+
+	return value
+end
+
+---------------------------------------------------------------------
+-- COPY
+---------------------------------------------------------------------
+
+local function deepCopy(value)
+
+	if typeof(value) ~= "table" then
+		return value
+	end
+
+	local result = {}
+
+	for key, child in pairs(value) do
+
+		result[
+		deepCopy(key)
+		] =
+			deepCopy(child)
+
+	end
+
+	return result
+end
+
+---------------------------------------------------------------------
+-- SAFE NUMBER
+---------------------------------------------------------------------
+
+local function safeNumber(
+	value,
+	fallback
+)
+
+	if typeof(value) == "number" then
+		return value
+	end
+
+	return fallback or 0
+end
+
+---------------------------------------------------------------------
+-- LOAD
+---------------------------------------------------------------------
+
+function Memory.LoadPatterns()
+
+	local ok, data =
+		pcall(
+			function()
+
+				return
+				MemoryStore:GetAsync(
+					"memory"
+				)
+
+			end
+		)
+
+	if not ok then
+
+		warn(
+			"[MEMORY] Load failed:",
+			data
+		)
+
+		return false
+	end
+
+	if typeof(data) ~= "table" then
+
+		print(
+			"[MEMORY] No saved memory found."
+		)
+
+		return true
+	end
+
+	Memory.cache.version =
+		data.version or 3
+
+	Memory.cache.patterns =
+		data.patterns or {}
+
+	Memory.cache.associations =
+		data.associations or {}
+
+	Memory.cache.relations =
+		data.relations or {}
+
+	print(
+		"[MEMORY] Loaded memory."
+	)
+
+	return true
+end
+
+---------------------------------------------------------------------
+-- SAVE
+---------------------------------------------------------------------
+
+function Memory.SavePatterns()
+
+	local data = {
+
+		version = 3,
+
+		patterns =
+			Memory.cache.patterns,
+
+		associations =
+			Memory.cache.associations,
+
+		relations =
+			Memory.cache.relations
+	}
+
+	local ok, err =
+		pcall(
+			function()
+
+				MemoryStore:SetAsync(
+					"memory",
+					data
+				)
+
+			end
+		)
+
+	if not ok then
+
+		warn(
+			"[MEMORY] Save failed:",
+			err
+		)
+
+		return false
+	end
+
+	Memory.cache.lastSave =
+		os.time()
+
+	return true
+end
+
+---------------------------------------------------------------------
+-- PATTERN
+---------------------------------------------------------------------
+
+function Memory.ReinforcePattern(
+	key,
+	amount
+)
+
+	key =
+		normalize(
+			key
+		)
+
+	if key == "" then
+		return
+	end
+
+	amount =
+		safeNumber(
+			amount,
+			DEFAULT_PATTERN_STRENGTH
+		)
+
+	local record =
+		Memory.cache.patterns[key]
+
+	if typeof(record)
+		~= "table"
+	then
+
+		record = {
+
+			key =
+				key,
+
+			strength =
+				0,
+
+			count =
+				0,
+
+			firstSeen =
+				os.time(),
+
+			lastSeen =
+				os.time()
+		}
+
+		Memory.cache.patterns[key] =
+			record
+	end
+
+	record.strength =
+		(record.strength or 0)
+		+
+		amount
+
+	record.count =
+		(record.count or 0)
+		+
+		1
+
+	record.lastSeen =
+		os.time()
+
+	return record.strength
+end
+
+---------------------------------------------------------------------
+-- TOUCH
+---------------------------------------------------------------------
+
+function Memory.TouchPattern(key)
+
+	return
+		Memory.ReinforcePattern(
+			key,
+			0.01
+		)
+
+end
+
+---------------------------------------------------------------------
+-- GET STRENGTH
+---------------------------------------------------------------------
+
+function Memory.GetStrength(key)
+
+	key =
+		normalize(
+			key
+		)
+
+	local record =
+		Memory.cache.patterns[key]
+
+	if typeof(record)
+		~= "table"
+	then
+
+		return 0
+	end
+
+	return
+		record.strength
+		or 0
+end
+
+---------------------------------------------------------------------
+-- HAS PATTERN
+---------------------------------------------------------------------
+
+function Memory.HasPattern(key)
+
+	key =
+		normalize(
+			key
+		)
+
+	return
+		Memory.cache.patterns[key]
+		~= nil
+end
+
+---------------------------------------------------------------------
+-- ASSOCIATION
+---------------------------------------------------------------------
+
+function Memory.Associate(
+	fromPattern,
+	toPattern,
+	amount
+)
+
+	fromPattern =
+		normalize(
+			fromPattern
+		)
+
+	toPattern =
+		normalize(
+			toPattern
+		)
+
+	if fromPattern == ""
+		or toPattern == ""
+		or fromPattern == toPattern
+	then
+
+		return
+	end
+
+	amount =
+		safeNumber(
+			amount,
+			DEFAULT_ASSOCIATION_STRENGTH
+		)
+
+	Memory.cache.associations[fromPattern] =
+		Memory.cache.associations[fromPattern]
+		or {}
+
+	local list =
+		Memory.cache.associations[fromPattern]
+
+	local record =
+		list[toPattern]
+
+	if typeof(record)
+		~= "table"
+	then
+
+		record = {
+
+			key =
+				toPattern,
+
+			strength =
+				0,
+
+			count =
+				0,
+
+			lastSeen =
+				os.time()
+		}
+
+		list[toPattern] =
+			record
+	end
+
+	record.strength =
+		(record.strength or 0)
+		+
+		amount
+
+	record.count =
+		(record.count or 0)
+		+
+		1
+
+	record.lastSeen =
+		os.time()
+
+	Memory.ReinforcePattern(
+		fromPattern,
+		amount * 0.2
+	)
+
+	Memory.ReinforcePattern(
+		toPattern,
+		amount * 0.2
+	)
+
+	return record.strength
+end
+
+---------------------------------------------------------------------
+-- ASSOCIATE BOTH DIRECTIONS
+---------------------------------------------------------------------
+
+function Memory.AssociateBoth(
+	a,
+	b,
+	amount
+)
+
+	Memory.Associate(
+		a,
+		b,
+		amount
+	)
+
+	Memory.Associate(
+		b,
+		a,
+		amount
+	)
+end
+
+---------------------------------------------------------------------
+-- GET ASSOCIATIONS
+---------------------------------------------------------------------
+
+function Memory.GetAssociations(
+	key,
+	limit
+)
+
+	key =
+		normalize(
+			key
+		)
+
+	limit =
+		tonumber(limit)
+		or 10
+
+	local source =
+		Memory.cache.associations[key]
+
+	if typeof(source)
+		~= "table"
+	then
+
+		return {}
+	end
+
+	local results = {}
+
+	for associationKey, record
+		in pairs(source)
+	do
+
+		table.insert(
+			results,
+			{
+				key =
+					associationKey,
+
+				word =
+					associationKey,
+
+				strength =
+					record.strength
+					or 0,
+
+				count =
+					record.count
+					or 0
+			}
+		)
+
+	end
+
+	table.sort(
+		results,
+		function(a, b)
+
+			return
+				(a.strength or 0)
+				>
+			(b.strength or 0)
+
+		end
+	)
+
+	while #results > limit do
+
+		table.remove(
+			results
+		)
+
+	end
+
+	return results
+end
+
+---------------------------------------------------------------------
+-- TYPED RELATION STORAGE
+--
+-- Example:
+--
+-- relations["yo"]["means"]["hello"]
+--
+---------------------------------------------------------------------
+
+function Memory.LearnRelation(
+	subject,
+	relation,
+	target,
+	amount
+)
+
+	subject =
+		normalize(
+			subject
+		)
+
+	relation =
+		normalize(
+			relation
+		)
+
+	target =
+		normalize(
+			target
+		)
+
+	if subject == ""
+		or relation == ""
+		or target == ""
+	then
+
+		return false
+	end
+
+	amount =
+		safeNumber(
+			amount,
+			DEFAULT_RELATION_STRENGTH
+		)
+
+	Memory.cache.relations[subject] =
+		Memory.cache.relations[subject]
+		or {}
+
+	Memory.cache.relations[subject][relation] =
+		Memory.cache.relations[subject][relation]
+		or {}
+
+	local relationTable =
+		Memory.cache.relations[subject][relation]
+
+	local record =
+		relationTable[target]
+
+	if typeof(record)
+		~= "table"
+	then
+
+		record = {
+
+			target =
+				target,
+
+			strength =
+				0,
+
+			count =
+				0,
+
+			firstSeen =
+				os.time(),
+
+			lastSeen =
+				os.time()
+		}
+
+		relationTable[target] =
+			record
+	end
+
+	record.strength =
+		(record.strength or 0)
+		+
+		amount
+
+	record.count =
+		(record.count or 0)
+		+
+		1
+
+	record.lastSeen =
+		os.time()
+
+	Memory.ReinforcePattern(
+		subject,
+		amount * 0.25
+	)
+
+	Memory.ReinforcePattern(
+		target,
+		amount * 0.25
+	)
+
+	print(
+		"[MEMORY RELATION]",
+		subject,
+		"--" .. relation .. "-->",
+		target
+	)
+
+	return true
+end
+
+---------------------------------------------------------------------
+-- GET RELATIONS
+---------------------------------------------------------------------
+
+function Memory.GetRelations(
+	subject,
+	relation,
+	limit
+)
+
+	subject =
+		normalize(
+			subject
+		)
+
+	relation =
+		normalize(
+			relation
+		)
+
+	limit =
+		tonumber(limit)
+		or 10
+
+	local subjectRelations =
+		Memory.cache.relations[subject]
+
+	if typeof(subjectRelations)
+		~= "table"
+	then
+
+		return {}
+	end
+
+	local relationTable =
+		subjectRelations[relation]
+
+	if typeof(relationTable)
+		~= "table"
+	then
+
+		return {}
+	end
+
+	local results = {}
+
+	for target, record
+		in pairs(relationTable)
+	do
+
+		table.insert(
+			results,
+			{
+				target =
+					target,
+
+				key =
+					target,
+
+				word =
+					target,
+
+				strength =
+					record.strength
+					or 0,
+
+				count =
+					record.count
+					or 0
+			}
+		)
+
+	end
+
+	table.sort(
+		results,
+		function(a, b)
+
+			if
+				(a.strength or 0)
+				==
+				(b.strength or 0)
+			then
+
+				return
+					(a.count or 0)
+					>
+				(b.count or 0)
+
+			end
+
+			return
+				(a.strength or 0)
+				>
+			(b.strength or 0)
+
+		end
+	)
+
+	while #results > limit do
+
+		table.remove(
+			results
+		)
+
+	end
+
+	return results
+end
+
+---------------------------------------------------------------------
+-- BEST RELATION
+---------------------------------------------------------------------
+
+function Memory.GetBestRelation(
+	subject,
+	relation
+)
+
+	local results =
+		Memory.GetRelations(
+			subject,
+			relation,
+			1
+		)
+
+	if results[1] then
+		return results[1].target
+	end
+
+	return nil
+end
+
+---------------------------------------------------------------------
+-- HAS RELATION
+---------------------------------------------------------------------
+
+function Memory.HasRelation(
+	subject,
+	relation,
+	target
+)
+
+	subject =
+		normalize(
+			subject
+		)
+
+	relation =
+		normalize(
+			relation
+		)
+
+	target =
+		normalize(
+			target
+		)
+
+	local subjectRelations =
+		Memory.cache.relations[subject]
+
+	if typeof(subjectRelations)
+		~= "table"
+	then
+
+		return false
+	end
+
+	local relationTable =
+		subjectRelations[relation]
+
+	if typeof(relationTable)
+		~= "table"
+	then
+
+		return false
+	end
+
+	return
+		relationTable[target]
+		~= nil
+end
+
+---------------------------------------------------------------------
+-- GET ALL RELATION TYPES
+---------------------------------------------------------------------
+
+function Memory.GetRelationTypes(subject)
+
+	subject =
+		normalize(
+			subject
+		)
+
+	local subjectRelations =
+		Memory.cache.relations[subject]
+
+	if typeof(subjectRelations)
+		~= "table"
+	then
+
+		return {}
+	end
+
+	local results = {}
+
+	for relation in pairs(subjectRelations) do
+
+		table.insert(
+			results,
+			relation
+		)
+
+	end
+
+	return results
+end
+
+---------------------------------------------------------------------
+-- FIND SUBJECTS
+---------------------------------------------------------------------
+
+function Memory.FindSubjects(
+	relation,
+	target,
+	limit
+)
+
+	relation =
+		normalize(
+			relation
+		)
+
+	target =
+		normalize(
+			target
+		)
+
+	limit =
+		tonumber(limit)
+		or 10
+
+	local results = {}
+
+	for subject, relations
+		in pairs(
+			Memory.cache.relations
+		)
+	do
+
+		local relationTable =
+			relations[relation]
+
+		if relationTable
+			and relationTable[target]
+		then
+
+			table.insert(
+				results,
+				subject
+			)
+
+		end
+
+		if #results >= limit then
+			break
+		end
+	end
+
+	return results
+end
+
+---------------------------------------------------------------------
+-- STRONGEST PATTERNS
+---------------------------------------------------------------------
+
+function Memory.GetStrongestPatterns(limit)
+
+	limit =
+		tonumber(limit)
+		or 10
+
+	local results = {}
+
+	for key, record
+		in pairs(
+			Memory.cache.patterns
+		)
+	do
+
+		table.insert(
+			results,
+			{
+				key =
+					key,
+
+				strength =
+					record.strength
+					or 0,
+
+				count =
+					record.count
+					or 0
+			}
+		)
+
+	end
+
+	table.sort(
+		results,
+		function(a, b)
+
+			return
+				(a.strength or 0)
+				>
+			(b.strength or 0)
+
+		end
+	)
+
+	while #results > limit do
+		table.remove(results)
+	end
+
+	return results
+end
+
+---------------------------------------------------------------------
+-- DECAY
+---------------------------------------------------------------------
+
+function Memory.DecayPatterns(amount)
+
+	amount =
+		tonumber(amount)
+		or 0.01
+
+	for key, record
+		in pairs(
+			Memory.cache.patterns
+		)
+	do
+
+		record.strength =
+			math.max(
+				0,
+				(record.strength or 0)
+				-
+				amount
+			)
+
+		if record.strength <= 0
+			and (record.count or 0) <= 0
+		then
+
+			Memory.cache.patterns[key] =
+				nil
+		end
+	end
+end
+
+---------------------------------------------------------------------
+-- RECALL
+---------------------------------------------------------------------
+
+function Memory.Recall(key)
+
+	key =
+		normalize(
+			key
+		)
+
+	return {
+
+		pattern =
+			deepCopy(
+				Memory.cache.patterns[key]
+			),
+
+		associations =
+			Memory.GetAssociations(
+				key,
+				10
+			),
+
+		relations =
+			deepCopy(
+				Memory.cache.relations[key]
+				or {}
+			)
+	}
+end
+
+---------------------------------------------------------------------
+-- GET PATTERNS
+---------------------------------------------------------------------
+
+function Memory.GetPatterns()
+
+	return
+		deepCopy(
+			Memory.cache.patterns
+		)
+
+end
+
+---------------------------------------------------------------------
+-- GET STATE
+---------------------------------------------------------------------
+
+function Memory.GetState()
+
+	return
+		deepCopy(
+			Memory.cache
+		)
+
+end
+
+---------------------------------------------------------------------
+-- CLEAR
+---------------------------------------------------------------------
+
+function Memory.Clear()
+
+	Memory.cache = {
+
+		version = 3,
+
+		patterns = {},
+
+		associations = {},
+
+		relations = {},
+
+		lastSave = 0
+	}
+end
+
+---------------------------------------------------------------------
+-- DEBUG
+---------------------------------------------------------------------
+
+function Memory.DebugPrint()
+
+	print(
+		"============== MEMORY =============="
+	)
+
+	print(
+		"PATTERNS:"
+	)
+
+	for key, record
+		in pairs(
+			Memory.cache.patterns
+		)
+	do
+
+		print(
+			key,
+			record.strength,
+			record.count
+		)
+
+	end
+
+	print(
+		"RELATIONS:"
+	)
+
+	for subject, relations
+		in pairs(
+			Memory.cache.relations
+		)
+	do
+
+		for relation, targets
+			in pairs(relations)
+		do
+
+			for target, record
+				in pairs(targets)
+			do
+
+				print(
+					subject,
+					"--" .. relation .. "-->",
+					target,
+					record.strength
+				)
+
+			end
+		end
+	end
+
+	print(
+		"===================================="
+	)
+end
+
+---------------------------------------------------------------------
+
+return Memory
