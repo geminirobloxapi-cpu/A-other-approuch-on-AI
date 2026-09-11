@@ -1,0 +1,37 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local BrainRemote = ReplicatedStorage:WaitForChild("BrainRemote")
+
+local gui = script.Parent
+
+local TextBox = gui:FindFirstChild("TextBox", true)
+local ResponseLabel = gui:FindFirstChild("ResponseLabel", true)
+
+if not TextBox then
+	warn("❌ TextBox not found in GUI")
+end
+
+if not ResponseLabel then
+	warn("❌ ResponseLabel not found in GUI")
+end
+
+local function setResponse(text)
+	ResponseLabel.Text = text
+end
+
+TextBox.FocusLost:Connect(function(enterPressed)
+	if not enterPressed then return end
+
+	local msg = TextBox.Text
+	if msg == "" then return end
+
+	local response
+	local ok, err = pcall(function()
+		response = BrainRemote:InvokeServer(msg)
+	end)
+
+	if not ok then
+		setResponse("Brain error: " .. tostring(err))
+	else
+		setResponse(response or "nil response")
+	end
+end)
