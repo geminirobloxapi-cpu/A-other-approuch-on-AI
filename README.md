@@ -1,4 +1,4 @@
-# The-no-wasting-water-AI
+#Trying to replicate AI but simpler
 The first AI that acts like a human in roblox
 
 
