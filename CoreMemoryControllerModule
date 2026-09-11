@@ -1,0 +1,2352 @@
+--// CoreMemoryControllerModule.lua
+
+---------------------------------------------------------------------
+-- SERVICES
+---------------------------------------------------------------------
+
+local DataStoreService = game:GetService("DataStoreService")
+
+local DictStore =
+	DataStoreService:GetDataStore("BrainDictionaryV2")
+
+---------------------------------------------------------------------
+-- MODULE
+---------------------------------------------------------------------
+
+local Dictionary = {}
+
+---------------------------------------------------------------------
+-- CONFIG
+---------------------------------------------------------------------
+
+local VECTOR_SIZE = 16
+
+-- How much related words move toward one another when associated.
+local ASSOCIATION_LEARNING_RATE = 0.04
+
+-- Maximum amount an association can grow.
+local MAX_ASSOCIATION_STRENGTH = 100
+
+-- Automatically associate nearby words in a sentence.
+local AUTO_LEARN_ASSOCIATIONS = true
+
+-- How far apart words can be and still form a relationship.
+local ASSOCIATION_WINDOW = 3
+
+---------------------------------------------------------------------
+-- STATE
+---------------------------------------------------------------------
+
+Dictionary.words = {}
+Dictionary.reverse = {}
+Dictionary.vectors = {}
+
+Dictionary.nextID = 1
+
+-- word -> word -> strength
+Dictionary.associations = {}
+
+-- Used for VectorToWords cache
+Dictionary.cache = {}
+
+Dictionary.dirty = false
+
+---------------------------------------------------------------------
+-- STOP WORDS
+---------------------------------------------------------------------
+
+local STOP_WORDS = {
+
+	["a"] = true,
+	["an"] = true,
+	["the"] = true,
+
+	["and"] = true,
+	["or"] = true,
+	["but"] = true,
+
+	["of"] = true,
+	["to"] = true,
+
+	["in"] = true,
+	["on"] = true,
+	["at"] = true,
+
+	["for"] = true,
+	["from"] = true,
+	["with"] = true,
+
+	["is"] = true,
+	["are"] = true,
+	["was"] = true,
+	["were"] = true,
+
+	["be"] = true,
+	["been"] = true,
+	["being"] = true,
+
+	["it"] = true,
+	["its"] = true,
+
+	["this"] = true,
+	["that"] = true,
+	["these"] = true,
+	["those"] = true,
+
+	["as"] = true,
+	["by"] = true
+}
+
+---------------------------------------------------------------------
+-- INTERNAL CONTROL TOKEN FILTER
+--
+-- These are metadata used by LanguageController / ThinkingController.
+-- They are NOT vocabulary and must never enter CoreMemory.
+---------------------------------------------------------------------
+
+local INTERNAL_PREFIXES = {
+	"intent_",
+	"topic_",
+	"subject_",
+	"relation_",
+	"target_",
+	"question_",
+	"thought_",
+	"brainstate_",
+	"memorytag_",
+	"systemtag_",
+}
+
+local function isInternalToken(word)
+
+	word =
+		string.lower(
+			tostring(word or "")
+		)
+
+	for _, prefix
+		in ipairs(INTERNAL_PREFIXES)
+	do
+
+		if string.sub(
+			word,
+			1,
+			#prefix
+			) == prefix
+		then
+
+			return true
+		end
+	end
+
+	return false
+end
+
+---------------------------------------------------------------------
+-- PREPROGRAMMED WORDS
+---------------------------------------------------------------------
+
+-- IMPORTANT:
+--
+-- Keep the massive PREPROGRAMMED_WORDS table from your current
+-- CoreMemoryControllerModule.lua here.
+--
+-- Example beginning:
+
+local PREPROGRAMMED_WORDS = {
+
+	-----------------------------------------------------------------
+	-- BASIC
+	-----------------------------------------------------------------
+
+	"a",
+	"about",
+	"above",
+	"after",
+	"again",
+	"against",
+
+	"all",
+	"also",
+	"am",
+	"an",
+	"and",
+	"another",
+	"any",
+
+	"anything",
+	"are",
+	"around",
+	"as",
+	"ask",
+	"at",
+	"away",
+
+	"back",
+	"bad",
+	"be",
+	"because",
+	"been",
+	"before",
+	"being",
+
+	"below",
+	"between",
+	"big",
+	"both",
+	"but",
+	"by",
+
+	"can",
+	"cannot",
+	"come",
+	"could",
+
+	"day",
+	"did",
+	"do",
+	"does",
+	"doing",
+	"done",
+	"down",
+
+	"each",
+	"else",
+	"even",
+	"ever",
+	"every",
+	"everything",
+
+	"few",
+	"find",
+	"first",
+	"for",
+	"from",
+
+	"get",
+	"give",
+	"go",
+	"going",
+	"good",
+	"got",
+	"great",
+
+	"had",
+	"has",
+	"have",
+	"having",
+	"he",
+	"hello",
+	"help",
+
+	"her",
+	"here",
+	"hers",
+	"hey",
+	"hi",
+	"him",
+	"his",
+	"how",
+
+	"i",
+	"if",
+	"in",
+	"inside",
+	"into",
+	"is",
+	"it",
+	"its",
+
+	"just",
+	"keep",
+	"know",
+
+	"last",
+	"like",
+	"little",
+	"long",
+	"look",
+
+	"made",
+	"make",
+	"many",
+	"may",
+	"me",
+	"more",
+	"most",
+	"much",
+	"must",
+	"my",
+
+	"need",
+	"never",
+	"new",
+	"next",
+	"no",
+	"not",
+	"nothing",
+	"now",
+
+	"of",
+	"off",
+	"old",
+	"on",
+	"once",
+	"one",
+	"only",
+	"or",
+
+	"other",
+	"our",
+	"out",
+	"outside",
+	"over",
+	"own",
+
+	"people",
+	"please",
+
+	"really",
+	"right",
+
+	"said",
+	"same",
+	"say",
+	"see",
+	"she",
+	"should",
+	"small",
+
+	"so",
+	"some",
+	"someone",
+	"something",
+	"still",
+	"such",
+
+	"take",
+	"tell",
+	"than",
+	"that",
+	"the",
+
+	"their",
+	"them",
+	"then",
+	"there",
+	"these",
+	"they",
+
+	"thing",
+	"things",
+	"think",
+	"this",
+	"those",
+	"through",
+	"time",
+	"to",
+	"too",
+	"try",
+
+	"under",
+	"up",
+	"us",
+	"use",
+
+	"very",
+
+	"want",
+	"was",
+	"way",
+	"we",
+	"well",
+	"went",
+	"were",
+
+	"what",
+	"when",
+	"where",
+	"which",
+	"while",
+	"who",
+	"why",
+
+	"will",
+	"with",
+	"without",
+	"work",
+	"would",
+
+	"yes",
+	"you",
+	"your",
+
+	-----------------------------------------------------------------
+	-- CONVERSATION / THINKING
+	-----------------------------------------------------------------
+
+	"answer",
+	"answers",
+
+	"question",
+	"questions",
+
+	"response",
+	"responses",
+
+	"reply",
+	"replies",
+
+	"message",
+	"messages",
+
+	"chat",
+	"conversation",
+
+	"talk",
+	"talking",
+
+	"speak",
+	"speaking",
+
+	"listen",
+	"listening",
+
+	"hear",
+	"hearing",
+
+	"read",
+	"reading",
+
+	"write",
+	"writing",
+
+	"explain",
+	"explanation",
+
+	"describe",
+	"description",
+
+	"show",
+
+	"understand",
+	"understood",
+	"understanding",
+
+	"remember",
+	"memory",
+	"memories",
+
+	"forget",
+
+	"learn",
+	"learned",
+	"learning",
+
+	"teach",
+	"teaching",
+
+	"meaning",
+	"mean",
+	"means",
+
+	"word",
+	"words",
+
+	"sentence",
+	"sentences",
+
+	"text",
+	"language",
+
+	"idea",
+	"ideas",
+
+	"concept",
+	"concepts",
+
+	"context",
+
+	"thought",
+	"thoughts",
+	"thinking",
+
+	"brain",
+
+	"intelligence",
+	"artificial",
+
+	"neural",
+	"neuron",
+	"neurons",
+
+	"vector",
+	"vectors",
+
+	"embedding",
+	"embeddings",
+
+	-----------------------------------------------------------------
+	-- EMOTIONS
+	-----------------------------------------------------------------
+
+	"happy",
+	"happiness",
+
+	"sad",
+	"sadness",
+
+	"angry",
+	"anger",
+	"mad",
+
+	"excited",
+	"excitement",
+
+	"scared",
+	"afraid",
+	"fear",
+
+	"love",
+	"hate",
+
+	"like",
+	"dislike",
+
+	"fun",
+	"funny",
+
+	"boring",
+	"bored",
+
+	"confused",
+	"surprised",
+
+	"calm",
+	"worried",
+	"annoyed",
+
+	"proud",
+	"shy",
+
+	"kind",
+	"nice",
+	"friendly",
+
+	"emotion",
+	"emotions",
+
+	"feel",
+	"feels",
+	"feeling",
+	"feelings",
+
+	-----------------------------------------------------------------
+	-- OBJECTS
+	-----------------------------------------------------------------
+
+	"person",
+	"human",
+	"people",
+
+	"dog",
+	"cat",
+	"animal",
+	"pet",
+
+	"bird",
+	"fish",
+
+	"tree",
+	"plant",
+
+	"rock",
+	"stone",
+
+	"computer",
+	"machine",
+	"phone",
+
+	"house",
+	"home",
+
+	"car",
+	"vehicle",
+
+	-----------------------------------------------------------------
+	-- ACTIONS
+	-----------------------------------------------------------------
+
+	"go",
+	"run",
+	"walk",
+	"move",
+
+	"jump",
+
+	"stop",
+	"start",
+
+	"think",
+	"know",
+	"learn",
+	"remember",
+
+	"talk",
+	"say",
+	"ask",
+	"reply",
+
+	"create",
+	"make",
+	"build",
+
+	"write",
+	"read",
+
+	"play",
+
+	-----------------------------------------------------------------
+	-- DESCRIPTION
+	-----------------------------------------------------------------
+
+	"big",
+	"small",
+
+	"large",
+	"tiny",
+
+	"fast",
+	"slow",
+
+	"hot",
+	"cold",
+
+	"light",
+	"dark",
+
+	"good",
+	"bad",
+
+	"strong",
+	"weak",
+
+	"easy",
+	"hard",
+
+	"simple",
+	"complex",
+
+	"real",
+	"fake",
+
+	-----------------------------------------------------------------
+	-- AI / ROBLOX
+	-----------------------------------------------------------------
+
+	"ai",
+
+	"network",
+	"model",
+
+	"token",
+	"tokens",
+
+	"training",
+	"train",
+	"trained",
+
+	"knowledge",
+
+	"dictionary",
+	"vocabulary",
+
+	"predict",
+	"prediction",
+
+	"recognize",
+	"recognition",
+
+	"similar",
+	"similarity",
+
+	"roblox",
+	"studio",
+	"luau",
+
+	"script",
+	"scripts",
+
+	"function",
+	"variable",
+
+	"table",
+	"array",
+
+	"string",
+	"number",
+	"boolean",
+
+	"client",
+	"server",
+
+	"request",
+
+	"data",
+	"database",
+
+	"cache",
+
+	"input",
+	"output",
+
+	"system"
+}
+
+---------------------------------------------------------------------
+-- NORMALIZE WORD
+---------------------------------------------------------------------
+
+local function normalizeWord(word)
+
+	word =
+		string.lower(
+			tostring(word or "")
+		)
+
+	word =
+		string.gsub(
+			word,
+			"^%p+",
+			""
+		)
+
+	word =
+		string.gsub(
+			word,
+			"%p+$",
+			""
+		)
+
+	return word
+end
+
+---------------------------------------------------------------------
+-- SAFE DATASTORE GET
+---------------------------------------------------------------------
+
+local function safeGet(key)
+
+	local ok, result =
+		pcall(function()
+
+			return DictStore:GetAsync(key)
+
+		end)
+
+	if not ok then
+
+		warn(
+			"[CORE MEMORY] Load failed:",
+			result
+		)
+
+		return nil
+	end
+
+	return result
+end
+
+---------------------------------------------------------------------
+-- SAFE DATASTORE UPDATE
+---------------------------------------------------------------------
+
+local function safeUpdate(key, callback)
+
+	local ok, result =
+		pcall(function()
+
+			return DictStore:UpdateAsync(
+				key,
+				callback
+			)
+
+		end)
+
+	if not ok then
+
+		warn(
+			"[CORE MEMORY] Save failed:",
+			result
+		)
+
+		return false
+	end
+
+	return true
+end
+
+---------------------------------------------------------------------
+-- DETERMINISTIC RANDOM GENERATOR
+---------------------------------------------------------------------
+
+-- We don't want a word to receive a completely different vector
+-- every time a datastore is reset.
+--
+-- This converts the word itself into a repeatable seed.
+
+local function hashWord(word)
+
+	local hash = 2166136261
+
+	for i = 1, #word do
+
+		hash =
+			bit32.bxor(
+				hash,
+				string.byte(word, i)
+			)
+
+		hash =
+			(hash * 16777619)
+			% 2147483647
+	end
+
+	if hash <= 0 then
+		hash = 1
+	end
+
+	return hash
+end
+
+---------------------------------------------------------------------
+-- VECTOR HELPERS
+---------------------------------------------------------------------
+
+local function newZeroVector()
+
+	local vector = {}
+
+	for i = 1, VECTOR_SIZE do
+		vector[i] = 0
+	end
+
+	return vector
+end
+
+---------------------------------------------------------------------
+
+local function magnitude(vector)
+
+	local total = 0
+
+	for i = 1, VECTOR_SIZE do
+
+		local value =
+			vector[i]
+			or 0
+
+		total +=
+			value * value
+	end
+
+	return math.sqrt(total)
+end
+
+---------------------------------------------------------------------
+
+local function normalizeVector(vector)
+
+	local mag =
+		magnitude(vector)
+
+	if mag <= 0 then
+		return vector
+	end
+
+	for i = 1, VECTOR_SIZE do
+
+		vector[i] =
+			(vector[i] or 0)
+			/ mag
+
+	end
+
+	return vector
+end
+
+---------------------------------------------------------------------
+-- GENERATE STABLE VECTOR
+---------------------------------------------------------------------
+
+local function generateVector(word)
+
+	local rng =
+		Random.new(
+			hashWord(word)
+		)
+
+	local vector = {}
+
+	for i = 1, VECTOR_SIZE do
+
+		vector[i] =
+			rng:NextNumber(
+				-1,
+				1
+			)
+
+	end
+
+	return normalizeVector(vector)
+end
+
+---------------------------------------------------------------------
+-- COSINE SIMILARITY
+---------------------------------------------------------------------
+
+local function cosineSimilarity(a, b)
+
+	local dot = 0
+	local magA = 0
+	local magB = 0
+
+	for i = 1, VECTOR_SIZE do
+
+		local av =
+			a[i]
+			or 0
+
+		local bv =
+			b[i]
+			or 0
+
+		dot +=
+			av * bv
+
+		magA +=
+			av * av
+
+		magB +=
+			bv * bv
+	end
+
+	if magA <= 0
+		or magB <= 0 then
+
+		return -math.huge
+	end
+
+	return
+		dot
+		/
+		math.sqrt(
+			magA * magB
+		)
+end
+
+---------------------------------------------------------------------
+-- ADD WORD WITHOUT SAVING
+---------------------------------------------------------------------
+
+local function addWordNoSave(word)
+
+	word =
+		normalizeWord(word)
+
+	if word == ""
+		or isInternalToken(word)
+	then
+		return nil
+	end
+
+	local existing =
+		Dictionary.words[word]
+
+	if existing then
+		return existing
+	end
+
+	local id =
+		Dictionary.nextID
+
+	Dictionary.nextID += 1
+
+	Dictionary.words[word] =
+		id
+
+	Dictionary.reverse[id] =
+		word
+
+	Dictionary.vectors[id] =
+		generateVector(word)
+
+	Dictionary.associations[word] =
+		Dictionary.associations[word]
+		or {}
+
+	Dictionary.dirty = true
+
+	table.clear(
+		Dictionary.cache
+	)
+
+	return id
+end
+
+---------------------------------------------------------------------
+-- GET ID
+---------------------------------------------------------------------
+
+function Dictionary.GetID(word)
+
+	word =
+		normalizeWord(word)
+
+	if word == ""
+		or isInternalToken(word)
+	then
+		return nil
+	end
+
+	local existing =
+		Dictionary.words[word]
+
+	if existing then
+		return existing
+	end
+
+	local id =
+		addWordNoSave(word)
+
+	print(
+		"[CORE MEMORY] Learned word:",
+		word,
+		"ID:",
+		id
+	)
+
+	-- IMPORTANT:
+	--
+	-- Do NOT save immediately.
+	--
+	-- BrainController already periodically calls Dictionary.Save().
+
+	return id
+end
+
+---------------------------------------------------------------------
+-- FIND ID
+---------------------------------------------------------------------
+
+function Dictionary.FindID(word)
+
+	word =
+		normalizeWord(word)
+
+	if word == ""
+		or isInternalToken(word)
+	then
+		return nil
+	end
+
+	return
+		Dictionary.words[word]
+end
+
+---------------------------------------------------------------------
+-- HAS WORD
+---------------------------------------------------------------------
+
+function Dictionary.HasWord(word)
+
+	return
+		Dictionary.FindID(word)
+		~= nil
+end
+
+---------------------------------------------------------------------
+-- GET WORD
+---------------------------------------------------------------------
+
+function Dictionary.GetWord(id)
+
+	return
+		Dictionary.reverse[id]
+end
+
+---------------------------------------------------------------------
+-- GET VECTOR
+---------------------------------------------------------------------
+
+function Dictionary.GetVector(word)
+
+	local id =
+		Dictionary.FindID(word)
+
+	if not id then
+		return nil
+	end
+
+	return
+		Dictionary.vectors[id]
+end
+
+---------------------------------------------------------------------
+-- VECTOR SIZE
+---------------------------------------------------------------------
+
+function Dictionary.GetVectorSize()
+
+	return VECTOR_SIZE
+end
+
+---------------------------------------------------------------------
+-- WORD COUNT
+---------------------------------------------------------------------
+
+function Dictionary.GetWordCount()
+
+	return
+		Dictionary.nextID - 1
+end
+
+---------------------------------------------------------------------
+-- ASSOCIATION
+---------------------------------------------------------------------
+
+function Dictionary.GetAssociation(
+	wordA,
+	wordB
+)
+
+	wordA =
+		normalizeWord(wordA)
+
+	wordB =
+		normalizeWord(wordB)
+
+	local connections =
+		Dictionary.associations[wordA]
+
+	if not connections then
+		return 0
+	end
+
+	return
+		connections[wordB]
+		or 0
+end
+
+---------------------------------------------------------------------
+-- MOVE VECTOR TOWARD ANOTHER VECTOR
+---------------------------------------------------------------------
+
+local function moveVectorToward(
+	source,
+	target,
+	amount
+)
+
+	for i = 1, VECTOR_SIZE do
+
+		local a =
+			source[i]
+			or 0
+
+		local b =
+			target[i]
+			or 0
+
+		source[i] =
+			a + ((b - a) * amount)
+
+	end
+
+	normalizeVector(source)
+end
+
+---------------------------------------------------------------------
+-- LEARN ASSOCIATION
+---------------------------------------------------------------------
+
+function Dictionary.AssociateWords(
+	wordA,
+	wordB,
+	amount
+)
+
+	wordA =
+		normalizeWord(wordA)
+
+	wordB =
+		normalizeWord(wordB)
+
+	if wordA == ""
+		or wordB == ""
+		or wordA == wordB
+		or isInternalToken(wordA)
+		or isInternalToken(wordB)
+	then
+
+		return
+	end
+
+	local idA =
+		Dictionary.GetID(wordA)
+
+	local idB =
+		Dictionary.GetID(wordB)
+
+	if not idA
+		or not idB then
+		return
+	end
+
+	Dictionary.associations[wordA] =
+		Dictionary.associations[wordA]
+		or {}
+
+	Dictionary.associations[wordB] =
+		Dictionary.associations[wordB]
+		or {}
+
+	amount =
+		tonumber(amount)
+		or 1
+
+	-------------------------------------------------------------
+	-- Association strength
+	-------------------------------------------------------------
+
+	Dictionary.associations[wordA][wordB] =
+		math.clamp(
+			(
+				Dictionary.associations[wordA][wordB]
+				or 0
+			)
+			+ amount,
+
+			0,
+			MAX_ASSOCIATION_STRENGTH
+		)
+
+	Dictionary.associations[wordB][wordA] =
+		math.clamp(
+			(
+				Dictionary.associations[wordB][wordA]
+				or 0
+			)
+			+ amount,
+
+			0,
+			MAX_ASSOCIATION_STRENGTH
+		)
+
+	-------------------------------------------------------------
+	-- Semantic learning
+	-------------------------------------------------------------
+
+	local vectorA =
+		Dictionary.vectors[idA]
+
+	local vectorB =
+		Dictionary.vectors[idB]
+
+	if vectorA and vectorB then
+
+		-- Copy first so modifying A doesn't affect the update to B.
+		local originalA =
+			table.clone(vectorA)
+
+		local originalB =
+			table.clone(vectorB)
+
+		local learning =
+			math.clamp(
+				ASSOCIATION_LEARNING_RATE
+				* amount,
+
+				0,
+				0.20
+			)
+
+		moveVectorToward(
+			vectorA,
+			originalB,
+			learning
+		)
+
+		moveVectorToward(
+			vectorB,
+			originalA,
+			learning
+		)
+
+	end
+
+	Dictionary.dirty = true
+
+	table.clear(
+		Dictionary.cache
+	)
+end
+
+---------------------------------------------------------------------
+-- GET ASSOCIATED WORDS
+---------------------------------------------------------------------
+
+function Dictionary.GetAssociations(
+	word,
+	amount
+)
+
+	word =
+		normalizeWord(word)
+
+	amount =
+		math.clamp(
+			tonumber(amount)
+			or 10,
+
+			1,
+			50
+		)
+
+	local connections =
+		Dictionary.associations[word]
+
+	if not connections then
+		return {}
+	end
+
+	local results = {}
+
+	for target, strength
+		in pairs(connections) do
+
+		table.insert(
+			results,
+			{
+				word = target,
+				strength = strength
+			}
+		)
+
+	end
+
+	table.sort(
+		results,
+
+		function(a, b)
+
+			return
+				a.strength
+				>
+			b.strength
+
+		end
+	)
+
+	while #results > amount do
+		table.remove(results)
+	end
+
+	return results
+end
+
+---------------------------------------------------------------------
+-- TOKENIZE
+---------------------------------------------------------------------
+
+function Dictionary.Tokenize(text)
+
+	local words = {}
+
+	text =
+		string.lower(
+			tostring(text or "")
+		)
+
+	for word in string.gmatch(
+		text,
+		"[%w_']+"
+		) do
+
+		word =
+			normalizeWord(word)
+
+		if word ~= ""
+			and not isInternalToken(word)
+		then
+			table.insert(
+				words,
+				word
+			)
+		end
+	end
+
+	return words
+end
+
+---------------------------------------------------------------------
+-- CONTENT WORDS
+---------------------------------------------------------------------
+
+function Dictionary.GetContentWords(text)
+
+	local words =
+		Dictionary.Tokenize(text)
+
+	local content = {}
+
+	for _, word in ipairs(words) do
+
+		if not STOP_WORDS[word]
+			and not isInternalToken(word)
+		then
+
+			table.insert(
+				content,
+				word
+			)
+
+		end
+	end
+
+	return content
+end
+
+---------------------------------------------------------------------
+-- LEARN SENTENCE RELATIONSHIPS
+---------------------------------------------------------------------
+
+function Dictionary.LearnFromText(text)
+
+	if not AUTO_LEARN_ASSOCIATIONS then
+		return
+	end
+
+	local words =
+		Dictionary.GetContentWords(text)
+
+	-------------------------------------------------------------
+	-- Make sure words exist
+	-------------------------------------------------------------
+
+	for _, word in ipairs(words) do
+		Dictionary.GetID(word)
+	end
+
+	-------------------------------------------------------------
+	-- Co-occurrence learning
+	-------------------------------------------------------------
+
+	for i = 1, #words do
+
+		local last =
+			math.min(
+				#words,
+				i + ASSOCIATION_WINDOW
+			)
+
+		for j = i + 1, last do
+
+			local distance =
+				j - i
+
+			-- Nearby words have stronger association.
+			local strength =
+				1 / distance
+
+			Dictionary.AssociateWords(
+				words[i],
+				words[j],
+				strength
+			)
+
+		end
+	end
+end
+
+---------------------------------------------------------------------
+-- MATH EXPRESSION CHECK
+---------------------------------------------------------------------
+
+local function isMathExpression(text)
+
+	return
+		string.match(
+			tostring(text or ""),
+			"^%s*[%d%+%-%*/%%%^%(%)%.]+%s*$"
+		)
+		~= nil
+end
+
+---------------------------------------------------------------------
+-- TEXT -> VECTOR
+---------------------------------------------------------------------
+
+function Dictionary.TextToVector(text)
+
+	text =
+		tostring(text or "")
+
+	local output =
+		newZeroVector()
+
+	if text == "" then
+		return output
+	end
+
+	-------------------------------------------------------------
+	-- Learn language relationships
+	-------------------------------------------------------------
+
+	Dictionary.LearnFromText(text)
+
+	-------------------------------------------------------------
+	-- Math is treated as one concept
+	-------------------------------------------------------------
+
+	if isMathExpression(text) then
+
+		local id =
+			Dictionary.GetID(text)
+
+		local vector =
+			id
+			and Dictionary.vectors[id]
+
+		if vector then
+
+			for i = 1, VECTOR_SIZE do
+				output[i] =
+					vector[i]
+					or 0
+			end
+
+		end
+
+		return output
+	end
+
+	-------------------------------------------------------------
+	-- Sentence embedding
+	-------------------------------------------------------------
+
+	local contentWords =
+		Dictionary.GetContentWords(text)
+
+	-------------------------------------------------------------
+	-- Fallback:
+	-- sentence may contain only stop words
+	-------------------------------------------------------------
+
+	if #contentWords == 0 then
+
+		contentWords =
+			Dictionary.Tokenize(text)
+
+	end
+
+	local count = 0
+
+	for _, word in ipairs(contentWords) do
+
+		local id =
+			Dictionary.GetID(word)
+
+		if id then
+
+			local wordVector =
+				Dictionary.vectors[id]
+
+			if wordVector then
+
+				for i = 1, VECTOR_SIZE do
+
+					output[i] +=
+						wordVector[i]
+						or 0
+
+				end
+
+				count += 1
+			end
+		end
+	end
+
+	-------------------------------------------------------------
+	-- Average
+	-------------------------------------------------------------
+
+	if count > 0 then
+
+		for i = 1, VECTOR_SIZE do
+
+			output[i] /=
+				count
+
+		end
+
+	end
+
+	normalizeVector(output)
+
+	return output
+end
+
+---------------------------------------------------------------------
+-- CONVERT NEURON PATTERN
+---------------------------------------------------------------------
+
+local function prepareInputVector(vector)
+
+	local output =
+		newZeroVector()
+
+	local appearsBinary =
+		true
+
+	for i = 1, VECTOR_SIZE do
+
+		local value =
+			vector[i]
+			or 0
+
+		if value ~= 0
+			and value ~= 1 then
+
+			appearsBinary =
+				false
+
+			break
+		end
+	end
+
+	-------------------------------------------------------------
+	-- Neural output:
+	--
+	-- 0 -> -1
+	-- 1 -> +1
+	--
+	-- This is important because word vectors exist from -1 to +1.
+	-------------------------------------------------------------
+
+	if appearsBinary then
+
+		for i = 1, VECTOR_SIZE do
+
+			if vector[i] == 1 then
+				output[i] = 1
+			else
+				output[i] = -1
+			end
+
+		end
+
+	else
+
+		for i = 1, VECTOR_SIZE do
+
+			output[i] =
+				vector[i]
+				or 0
+
+		end
+
+	end
+
+	normalizeVector(output)
+
+	return output
+end
+
+---------------------------------------------------------------------
+-- VECTOR -> SCORED WORDS
+---------------------------------------------------------------------
+
+function Dictionary.VectorToScoredWords(
+	vector,
+	amount
+)
+
+	if typeof(vector) ~= "table" then
+		return {}
+	end
+
+	amount =
+		math.clamp(
+			tonumber(amount)
+			or 5,
+
+			1,
+			50
+		)
+
+	local prepared =
+		prepareInputVector(vector)
+
+	if magnitude(prepared) <= 0 then
+		return {}
+	end
+
+	local results = {}
+
+	for id, wordVector
+		in pairs(Dictionary.vectors) do
+
+		local word =
+			Dictionary.reverse[id]
+
+		if word
+			and wordVector
+			and not STOP_WORDS[word]
+			and not isInternalToken(word)
+		then
+
+			local score =
+				cosineSimilarity(
+					prepared,
+					wordVector
+				)
+
+			table.insert(
+				results,
+				{
+					id = id,
+					word = word,
+					score = score
+				}
+			)
+		end
+	end
+
+	table.sort(
+		results,
+
+		function(a, b)
+
+			return
+				a.score
+				>
+			b.score
+
+		end
+	)
+
+	while #results > amount do
+		table.remove(results)
+	end
+
+	return results
+end
+
+---------------------------------------------------------------------
+-- VECTOR -> TOP WORDS
+---------------------------------------------------------------------
+
+function Dictionary.VectorToTopWords(
+	vector,
+	amount
+)
+
+	local scored =
+		Dictionary.VectorToScoredWords(
+			vector,
+			amount
+		)
+
+	local words = {}
+
+	for _, result in ipairs(scored) do
+
+		table.insert(
+			words,
+			result.word
+		)
+
+	end
+
+	return words
+end
+
+---------------------------------------------------------------------
+-- VECTOR -> BEST WORD
+---------------------------------------------------------------------
+
+function Dictionary.VectorToWords(vector)
+
+	if typeof(vector) ~= "table" then
+		return "thinking"
+	end
+
+	-------------------------------------------------------------
+	-- Cache
+	-------------------------------------------------------------
+
+	local cacheParts = {}
+
+	for i = 1, VECTOR_SIZE do
+
+		cacheParts[i] =
+			string.format(
+				"%.3f",
+				vector[i]
+				or 0
+			)
+
+	end
+
+	local key =
+		table.concat(
+			cacheParts,
+			","
+		)
+
+	local cached =
+		Dictionary.cache[key]
+
+	if cached then
+		return cached
+	end
+
+	-------------------------------------------------------------
+	-- Find closest
+	-------------------------------------------------------------
+
+	local results =
+		Dictionary.VectorToScoredWords(
+			vector,
+			1
+		)
+
+	local word =
+		"thinking"
+
+	if results[1] then
+
+		word =
+			results[1].word
+
+	end
+
+	Dictionary.cache[key] =
+		word
+
+	return word
+end
+
+---------------------------------------------------------------------
+-- REMOVE CONTAMINATED INTERNAL TOKENS
+--
+-- This cleans older saved dictionaries without deleting useful words.
+---------------------------------------------------------------------
+
+local function removeInternalTokens()
+
+	local removed = 0
+	local badWords = {}
+
+	for word, id
+		in pairs(Dictionary.words)
+	do
+
+		if isInternalToken(word) then
+
+			badWords[word] = true
+
+			Dictionary.words[word] = nil
+			Dictionary.reverse[id] = nil
+			Dictionary.vectors[id] = nil
+
+			removed += 1
+		end
+	end
+
+	-------------------------------------------------------------
+	-- Remove their own association tables.
+	-------------------------------------------------------------
+
+	for word in pairs(badWords) do
+		Dictionary.associations[word] = nil
+	end
+
+	-------------------------------------------------------------
+	-- Remove links TO contaminated words.
+	-------------------------------------------------------------
+
+	for word, connections
+		in pairs(Dictionary.associations)
+	do
+
+		if isInternalToken(word) then
+
+			Dictionary.associations[word] = nil
+
+		elseif typeof(connections) == "table" then
+
+			for target in pairs(connections) do
+
+				if badWords[target]
+					or isInternalToken(target)
+				then
+
+					connections[target] = nil
+				end
+			end
+		end
+	end
+
+	if removed > 0 then
+
+		Dictionary.dirty = true
+
+		table.clear(
+			Dictionary.cache
+		)
+
+		print(
+			"[CORE MEMORY] Removed",
+			removed,
+			"internal control tokens"
+		)
+	end
+
+	return removed
+end
+
+---------------------------------------------------------------------
+-- SAVE
+---------------------------------------------------------------------
+
+function Dictionary.Save()
+
+	if not Dictionary.dirty then
+		return true
+	end
+
+	local success =
+		safeUpdate(
+			"dictionary",
+
+			function(old)
+
+				-- We save the server's current brain state.
+				--
+				-- UpdateAsync is used instead of SetAsync so this
+				-- operation is safer if servers overlap.
+
+				return {
+
+					version = 2,
+
+					vectorSize =
+					VECTOR_SIZE,
+
+					words =
+					Dictionary.words,
+
+					reverse =
+					Dictionary.reverse,
+
+					vectors =
+					Dictionary.vectors,
+
+					associations =
+					Dictionary.associations,
+
+					nextID =
+					Dictionary.nextID,
+
+					savedAt =
+					os.time()
+				}
+			end
+		)
+
+	if success then
+
+		Dictionary.dirty =
+			false
+
+		print(
+			"[CORE MEMORY] Saved",
+			Dictionary.nextID - 1,
+			"words"
+		)
+
+	end
+
+	return success
+end
+
+---------------------------------------------------------------------
+-- LOAD
+---------------------------------------------------------------------
+
+function Dictionary.Load()
+
+	print(
+		"[CORE MEMORY] Loading dictionary..."
+	)
+
+	local data =
+		safeGet(
+			"dictionary"
+		)
+
+	if typeof(data) == "table" then
+
+		Dictionary.words =
+			data.words
+			or {}
+
+		Dictionary.reverse =
+			data.reverse
+			or {}
+
+		Dictionary.vectors =
+			data.vectors
+			or {}
+
+		Dictionary.associations =
+			data.associations
+			or {}
+
+		Dictionary.nextID =
+			data.nextID
+			or 1
+
+		print(
+			"[CORE MEMORY] Loaded",
+			Dictionary.nextID - 1,
+			"stored words"
+		)
+
+	else
+
+		print(
+			"[CORE MEMORY] No stored dictionary."
+		)
+
+	end
+
+	-------------------------------------------------------------
+	-- Remove old intent_/thought_/topic_ contamination
+	-------------------------------------------------------------
+
+	removeInternalTokens()
+
+	-------------------------------------------------------------
+	-- Repair loaded vectors
+	-------------------------------------------------------------
+
+	for id, word in pairs(
+		Dictionary.reverse
+		) do
+
+		local vector =
+			Dictionary.vectors[id]
+
+		if typeof(vector) ~= "table" then
+
+			Dictionary.vectors[id] =
+				generateVector(
+					word
+				)
+
+			Dictionary.dirty =
+				true
+
+		else
+
+			---------------------------------------------------------
+			-- Force exact vector length
+			---------------------------------------------------------
+
+			for i = 1, VECTOR_SIZE do
+
+				if typeof(vector[i]) ~= "number" then
+
+					vector[i] = 0
+
+				end
+			end
+
+			normalizeVector(
+				vector
+			)
+
+		end
+	end
+
+	-------------------------------------------------------------
+	-- Add preprogrammed vocabulary
+	-------------------------------------------------------------
+
+	local added = 0
+
+	for _, word
+		in ipairs(PREPROGRAMMED_WORDS) do
+
+		word =
+			normalizeWord(word)
+
+		if word ~= ""
+			and not isInternalToken(word)
+			and not Dictionary.words[word] then
+
+			addWordNoSave(
+				word
+			)
+
+			added += 1
+		end
+	end
+
+	-------------------------------------------------------------
+	-- PREPROGRAM BASIC SEMANTIC RELATIONSHIPS
+	-------------------------------------------------------------
+
+	local basicRelations = {
+
+		{"dog", "animal"},
+		{"dog", "pet"},
+
+		{"cat", "animal"},
+		{"cat", "pet"},
+
+		{"bird", "animal"},
+		{"fish", "animal"},
+
+		{"human", "person"},
+		{"people", "person"},
+
+		{"happy", "good"},
+		{"happy", "excited"},
+
+		{"sad", "bad"},
+
+		{"angry", "mad"},
+
+		{"run", "move"},
+		{"walk", "move"},
+		{"go", "move"},
+
+		{"talk", "speak"},
+		{"talk", "say"},
+
+		{"think", "thought"},
+		{"think", "brain"},
+
+		{"remember", "memory"},
+
+		{"learn", "knowledge"},
+		{"learning", "knowledge"},
+
+		{"ai", "artificial"},
+		{"ai", "intelligence"},
+		{"ai", "brain"},
+
+		{"neuron", "brain"},
+		{"neurons", "brain"},
+
+		{"vector", "embedding"},
+		{"vectors", "embeddings"},
+
+		{"roblox", "game"},
+		{"studio", "roblox"},
+
+		{"script", "code"},
+		{"coding", "code"},
+
+		{"computer", "machine"},
+
+		{"big", "large"},
+		{"small", "tiny"},
+
+		{"fast", "speed"},
+
+		{"good", "better"},
+		{"bad", "worse"}
+	}
+
+	for _, relation
+		in ipairs(basicRelations) do
+
+		local a =
+			relation[1]
+
+		local b =
+			relation[2]
+
+		if Dictionary.GetAssociation(a, b) <= 0 then
+
+			Dictionary.AssociateWords(
+				a,
+				b,
+				2
+			)
+
+		end
+	end
+
+	if added > 0 then
+
+		print(
+			"[CORE MEMORY] Added",
+			added,
+			"preprogrammed words"
+		)
+
+	end
+
+	print(
+		"[CORE MEMORY] Ready:",
+		Dictionary.nextID - 1,
+		"words"
+	)
+
+	-- BrainController will handle saving.
+end
+
+---------------------------------------------------------------------
+-- INTERNAL TOKEN DEBUG
+---------------------------------------------------------------------
+
+function Dictionary.IsInternalToken(word)
+	return isInternalToken(
+		normalizeWord(word)
+	)
+end
+
+---------------------------------------------------------------------
+-- DEBUG WORD
+---------------------------------------------------------------------
+
+function Dictionary.DebugWord(word)
+
+	word =
+		normalizeWord(word)
+
+	print(
+		"========== CORE MEMORY =========="
+	)
+
+	print(
+		"WORD:",
+		word
+	)
+
+	local id =
+		Dictionary.FindID(word)
+
+	print(
+		"ID:",
+		id
+	)
+
+	if not id then
+
+		print(
+			"Unknown word."
+		)
+
+		return
+	end
+
+	local associated =
+		Dictionary.GetAssociations(
+			word,
+			10
+		)
+
+	print(
+		"ASSOCIATIONS:"
+	)
+
+	for _, result
+		in ipairs(associated) do
+
+		print(
+			"  ->",
+			result.word,
+			result.strength
+		)
+
+	end
+
+	local similar =
+		Dictionary.VectorToScoredWords(
+			Dictionary.vectors[id],
+			10
+		)
+
+	print(
+		"VECTOR SIMILARITY:"
+	)
+
+	for _, result
+		in ipairs(similar) do
+
+		print(
+			"  ->",
+			result.word,
+			result.score
+		)
+
+	end
+
+	print(
+		"================================="
+	)
+end
+
+---------------------------------------------------------------------
+-- DEBUG TEXT
+---------------------------------------------------------------------
+
+function Dictionary.DebugText(text)
+
+	local vector =
+		Dictionary.TextToVector(
+			text
+		)
+
+	local closest =
+		Dictionary.VectorToScoredWords(
+			vector,
+			10
+		)
+
+	print(
+		"========== TEXT VECTOR =========="
+	)
+
+	print(
+		"INPUT:",
+		text
+	)
+
+	for _, result
+		in ipairs(closest) do
+
+		print(
+			result.word,
+			result.score
+		)
+
+	end
+
+	print(
+		"================================="
+	)
+
+	return closest
+end
+
+---------------------------------------------------------------------
+
+return Dictionary
