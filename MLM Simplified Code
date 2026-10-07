@@ -8,32 +8,74 @@ local Players = game:GetService("Players")
 local Player = Players.LocalPlayer
 
 --------------------------------------------------------------------------------
--- 1. STATE TRACKERS (Confusion, Thinking, Dynamic Learning)
+-- 1. STATE TRACKERS & CONFIG
 --------------------------------------------------------------------------------
 local SystemState = {
-	ThinkingLevel = 0, -- Bumps up when user gives feedback/corrections
-	Confusion = 0.0,   -- 0.0 (full understanding) to 1.0+ (total mystery)
+	ThinkingLevel = 0,
+	Confusion = 0.0,
+	NeuronDecayRate = 0.85 -- Fast decay forces constant vocabulary evolution
 }
 
--- Corrections or "mean" feedback that force the brain to think and adapt
 local FeedbackKeywords = {
 	"no", "wrong", "bad", "mean", "think", "learn", "incorrect", "dumb", "stupid", "nope"
 }
 
 --------------------------------------------------------------------------------
--- 2. EXPANDED PATHWAYS & DYNAMIC MEMORY
+-- 2. SYNONYM DICTIONARY (MUTATION GRAPH)
+--------------------------------------------------------------------------------
+local Synonyms = {
+	["hello"] = {"hey", "hi", "greetings", "howdy", "salutations"},
+	["there"] = {"friend", "pal", "mate", "user"},
+	["how"] = {"in what way", "by what means"},
+	["can"] = {"may", "could"},
+	["help"] = {"assist", "support", "guide"},
+	["today"] = {"right now", "at present", "currently"},
+	["learning"] = {"adapting", "evolving", "processing", "growing", "synapsing"},
+	["brain"] = {"neural net", "intellect", "processor", "mind", "cognitive core", "thought matrix"},
+	["local"] = {"internal", "client-side", "personal", "on-device", "native"},
+	["machine"] = {"system", "engine", "construct", "framework", "intelligence"},
+	["electronic"] = {"digital", "virtual", "computational", "synthetic"},
+	["sweet"] = {"sugary", "tasty", "flavorful"},
+	["small"] = {"tiny", "compact", "little"},
+	["loyal"] = {"faithful", "devoted", "dedicated"},
+	["processing"] = {"calculating", "computing", "analyzing", "evaluating"},
+	["data"] = {"information", "inputs", "variables", "knowledge"},
+	["rules"] = {"instructions", "guidelines", "logic", "patterns"},
+	["signals"] = {"data", "impulses", "messages", "triggers"},
+	["fruit"] = {"produce", "crop", "snack"},
+	["creature"] = {"animal", "being", "organism"},
+	["unit"] = {"node", "module", "cell"},
+	["zinc"] = {"Zinc", "this AI core", "my neural frame"}
+}
+
+--------------------------------------------------------------------------------
+-- 3. PATHWAYS & CONCEPT MEMORY
 --------------------------------------------------------------------------------
 local Pathways = {
-	Greetings = {
-		strength = 1.0,
+	Identity = {
+		strength = 0.5,
 		lastActive = os.time(),
-		words = {"hello", "hey", "yo", "hi", "sup", "greetings", "howdy"},
-		addresses = {"bro", "friend", "pal", "dude", "mate"},
-		feelings = {"feeling awesome", "doing great", "going fantastic", "vibing well"}
+		concepts = {
+			zinc = "a local learning brain",
+			zincai = "a local machine learning brain",
+			you = "Zinc, a client-side adaptive brain",
+			yourself = "a local adaptive learning brain"
+		}
+	},
+	Greetings = {
+		strength = 0.5,
+		lastActive = os.time(),
+		concepts = {
+			hi = "Hello there how can i help you today",
+			hello = "Hello there how can i help you today",
+			hey = "Hello there how can i help you today",
+			yo = "Hello there how can i help you today",
+			sup = "Hello there how can i help you today"
+		}
 	},
 	Fruits = {
-		strength = 0.2,
-		lastActive = os.time() - 1000,
+		strength = 0.5,
+		lastActive = os.time(),
 		concepts = {
 			apple = "a sweet edible fruit growing on trees",
 			banana = "a yellow tropical fruit full of potassium",
@@ -41,180 +83,179 @@ local Pathways = {
 		}
 	},
 	Animals = {
-		strength = 0.2,
-		lastActive = os.time() - 1000,
+		strength = 0.5,
+		lastActive = os.time(),
 		concepts = {
 			cat = "a small furry creature that meows and rests",
 			dog = "a loyal canine that barks and plays"
 		}
 	},
+	Numbers = {
+		strength = 0.5,
+		lastActive = os.time(),
+		concepts = {
+			numberone = "one other known as 1 is a number you can add like 1 + 1 = 2"
+		}
+	},
 	TechAndAI = {
-		strength = 0.2,
-		lastActive = os.time() - 1000,
+		strength = 0.5,
+		lastActive = os.time(),
 		concepts = {
 			computer = "an electronic machine processing code and data",
 			algorithm = "a set of rules for solving problems step by step",
 			neuron = "a processing unit that transfers signals"
 		}
 	},
-	DynamicLearned = { -- Storage for newly formed thoughts during high Thinking levels
-		strength = 1.0,
+	DynamicLearned = {
+		strength = 0.5,
 		lastActive = os.time(),
 		concepts = {}
 	}
 }
 
 --------------------------------------------------------------------------------
--- 3. TOKENIZER & VOCABULARY CHECKER
+-- 4. TOKENIZER & MUTATION ENGINE
 --------------------------------------------------------------------------------
 local function Tokenize(text: string): {string}
 	local tokens = {}
-	for word in string.gmatch(string.lower(text), "%S+") do
-		word = string.gsub(word, "%W", "")
-		if #word > 0 then
-			table.insert(tokens, word)
-		end
+	for word in string.gmatch(string.lower(text or ""), "%w+") do
+		table.insert(tokens, word)
 	end
 	return tokens
 end
 
--- Collect all known words across pathways to evaluate confusion
-local function GetMasterVocabulary(): {[string]: string}
-	local vocab = {}
-	for pathwayName, data in pairs(Pathways) do
-		if data.concepts then
-			for key, _ in pairs(data.concepts) do vocab[key] = pathwayName end
+-- Mutates definitions dynamically using synonym graph traversal
+local function MutateDefinition(text: string): string
+	local words = {}
+	for word in string.gmatch(text, "%S+") do
+		local cleanWord = string.lower(string.match(word, "%w+") or word)
+
+		if Synonyms[cleanWord] and math.random() > 0.5 then
+			local options = Synonyms[cleanWord]
+			local newWord = options[math.random(1, #options)]
+			word = string.gsub(word, cleanWord, newWord)
 		end
-		if data.words then
-			for _, w in ipairs(data.words) do vocab[w] = pathwayName end
+		table.insert(words, word)
+	end
+	return table.concat(words, " ")
+end
+
+-- Rapidly decays neuron strength so pathways require continuous re-explaining
+local function FastDecayNeurons()
+	for _, pathway in pairs(Pathways) do
+		if pathway.strength then
+			pathway.strength = math.max(0.1, pathway.strength - SystemState.NeuronDecayRate)
 		end
 	end
-	return vocab
 end
 
 --------------------------------------------------------------------------------
--- 4. CONFUSION & THINKING CALCULATOR
+-- 5. PROCESS ZINC INPUT (MAIN INFERENCE ENGINE)
 --------------------------------------------------------------------------------
-local function EvaluatePromptContext(tokens: {string}): (number, boolean)
-	local vocab = GetMasterVocabulary()
-	local recognizedCount = 0
-	local totalTokens = #tokens
-	local isFeedback = false
+local function ProcessZincInput(userInput: string): string
+	local tokens = Tokenize(userInput)
+	if #tokens == 0 then
+		return "I didn't receive any text to process."
+	end
 
+	FastDecayNeurons() -- Decay neuron connections rapidly on each query
+
+	-- Check for feedback keywords
+	local feedbackDetected = false
 	for _, token in ipairs(tokens) do
-		-- Check for feedback/correction words
-		for _, fb in ipairs(FeedbackKeywords) do
-			if token == fb then
-				isFeedback = true
+		for _, kw in ipairs(FeedbackKeywords) do
+			if token == kw then
+				feedbackDetected = true
 				break
 			end
 		end
-
-		-- Check vocabulary match
-		if vocab[token] then
-			recognizedCount += 1
-		end
+		if feedbackDetected then break end
 	end
 
-	-- Calculate Confusion: Ratio of unknown words (0.0 = known, 1.0+ = completely alien)
-	local unknownCount = totalTokens - recognizedCount
-	local confusionScore = totalTokens > 0 and (unknownCount / totalTokens) or 0.0
+	if feedbackDetected then
+		SystemState.ThinkingLevel += 1
+		SystemState.Confusion = math.min(SystemState.Confusion + 0.3, 2.0)
+	else
+		SystemState.Confusion = math.max(SystemState.Confusion - 0.1, 0.0)
+	end
 
-	return confusionScore, isFeedback
-end
+	-- Search concepts in pathways
+	local matchedConcept = nil
+	local matchedDef = nil
+	local matchedPathway = nil
 
---------------------------------------------------------------------------------
--- 5. NEAREST CONCEPT EXTRAPOLATION (Extrapolates from what it knows)
---------------------------------------------------------------------------------
-local function FindClosestKnownPathway(unknownWord: string): string
-	-- Finds nearest pathway based on partial string matching
-	for pathwayName, data in pairs(Pathways) do
-		if data.concepts then
-			for key, _ in pairs(data.concepts) do
-				if string.find(unknownWord, string.sub(key, 1, 3)) or string.find(key, string.sub(unknownWord, 1, 3)) then
-					return pathwayName
+	for pName, pathway in pairs(Pathways) do
+		if pathway.concepts then
+			for conceptKey, def in pairs(pathway.concepts) do
+				for _, token in ipairs(tokens) do
+					if token == conceptKey then
+						matchedConcept = conceptKey
+						matchedDef = def
+						matchedPathway = pathway
+						break
+					end
 				end
+				if matchedConcept then break end
 			end
 		end
-	end
-	return "TechAndAI" -- Default research target when extrapolating
-end
-
---------------------------------------------------------------------------------
--- 6. INTENT ROUTER & THOUGHT SYNTHESIZER
---------------------------------------------------------------------------------
-local function ProcessPrompt(userPrompt: string): string
-	local tokens = Tokenize(userPrompt)
-	if #tokens == 0 then return "..." end
-
-	local confusion, isFeedback = EvaluatePromptContext(tokens)
-	SystemState.Confusion = confusion
-
-	-- Adjust Thinking Level based on user feedback
-	if isFeedback then
-		SystemState.ThinkingLevel += 1
-	elseif SystemState.ThinkingLevel > 0 then
-		SystemState.ThinkingLevel = math.max(0, SystemState.ThinkingLevel - 1)
+		if matchedConcept then break end
 	end
 
-	-- STEP 1: Check for Direct Match
-	local vocab = GetMasterVocabulary()
-	local matchedPathway = nil
-	local matchedConcept = nil
-	local unknownWords = {}
+	if matchedConcept and matchedDef and matchedPathway then
+		matchedPathway.lastActive = os.time()
 
+		if matchedPathway.strength < 0.8 then
+			-- FADED NEURON: Re-explain concept / greeting in a fresh way
+			local newDef = MutateDefinition(matchedDef)
+			matchedPathway.concepts[matchedConcept] = newDef
+			matchedPathway.strength = 0.5 -- Reset to trigger decay again
+
+			if matchedPathway == Pathways.Greetings then
+				return newDef
+			end
+
+			return string.format("%s is %s.", matchedConcept:sub(1,1):upper()..matchedConcept:sub(2), newDef)
+		else
+			if matchedPathway == Pathways.Greetings then
+				return matchedDef
+			end
+
+			return string.format("%s is %s.", matchedConcept:sub(1,1):upper()..matchedConcept:sub(2), matchedDef)
+		end
+	end
+
+	-- Calculate word mismatch & confusion
+	local recognizedCount = 0
 	for _, token in ipairs(tokens) do
-		if vocab[token] then
-			matchedPathway = vocab[token]
-			matchedConcept = token
-		else
-			table.insert(unknownWords, token)
+		local known = false
+		for _, p in pairs(Pathways) do
+			if p.concepts and p.concepts[token] then known = true end
+			if known then break end
 		end
+		if known then recognizedCount += 1 end
 	end
 
-	-- STEP 2: Exact Match Found -> Standard Knowledge Output
-	if matchedPathway and confusion < 0.5 then
-		local conceptDef = Pathways[matchedPathway].concepts and Pathways[matchedPathway].concepts[matchedConcept]
-		if conceptDef then
-			return string.format("[Pathway: %s | Confusion: %.1f] %s is %s.", matchedPathway, SystemState.Confusion, matchedConcept, conceptDef)
-		else
-			return string.format("[Pathway: %s | Confusion: %.1f] I recognize '%s' in my neural network.", matchedPathway, SystemState.Confusion, matchedConcept)
-		end
+	local mismatchRatio = 1 - (recognizedCount / math.max(#tokens, 1))
+	SystemState.Confusion = math.min(SystemState.Confusion + mismatchRatio, 3.0)
+
+	-- Dynamic learning mode
+	if SystemState.ThinkingLevel >= 1 and #tokens >= 3 then
+		local newConcept = tokens[1]
+		local newDef = table.concat(tokens, " ", 2)
+		Pathways.DynamicLearned.concepts[newConcept] = newDef
+		Pathways.DynamicLearned.strength = 0.5
+		return string.format("I've learned that %s is %s.", newConcept, newDef)
 	end
 
-	-- STEP 3: High Confusion + Thinking Mode -> Extrapolate & Auto-Learn
-	if SystemState.ThinkingLevel > 0 or confusion >= 0.5 then
-		local targetWord = unknownWords[1] or "concept"
-		local nearestPathway = FindClosestKnownPathway(targetWord)
-
-		-- Auto-learn new link into DynamicLearned Pathway
-		local formedThought = string.format("an unverified concept associated with %s neural patterns", nearestPathway)
-		Pathways.DynamicLearned.concepts[targetWord] = formedThought
-
-		return string.format(
-			"[Thinking: Level %d | Confusion: %.1f] Unknown word '%s'... Extrapolating link to [%s] using existing knowledge pathways. Neural link created.",
-			SystemState.ThinkingLevel,
-			SystemState.Confusion,
-			targetWord,
-			nearestPathway
-		)
-	end
-
-	-- STEP 4: Standard Unknown State (Exposes confusion instead of greetings fallback)
-	return string.format(
-		"[Confusion: %.1f | Thinking: Level %d] My neural matrix does not recognize these tokens (%s). Say 'think' or correct me to increase thinking level!",
-		SystemState.Confusion,
-		SystemState.ThinkingLevel,
-		table.concat(unknownWords, ", ")
-	)
+	return "I'm not completely sure about that yet, but I'm adapting."
 end
 
 --------------------------------------------------------------------------------
--- 7. CHAT LISTENER
+-- 6. CHAT LISTENER
 --------------------------------------------------------------------------------
 Player.Chatted:Connect(function(message)
 	task.spawn(function()
-		local output = ProcessPrompt(message)
+		local output = ProcessZincInput(message)
 		print(output)
 	end)
 end)
