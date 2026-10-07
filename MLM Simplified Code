@@ -13,7 +13,7 @@ local Player = Players.LocalPlayer
 local SystemState = {
 	ThinkingLevel = 0,
 	Confusion = 0.0,
-	NeuronDecayRate = 0.85 -- Fast decay forces constant vocabulary evolution
+	NeuronDecayRate = 0.95 -- Aggressive decay forces constant mutation
 }
 
 local FeedbackKeywords = {
@@ -21,15 +21,21 @@ local FeedbackKeywords = {
 }
 
 --------------------------------------------------------------------------------
--- 2. SYNONYM DICTIONARY (MUTATION GRAPH)
+-- 2. EXPANDED SYNONYM DICTIONARY (MUTATION GRAPH)
 --------------------------------------------------------------------------------
 local Synonyms = {
-	["hello"] = {"hey", "hi", "greetings", "howdy", "salutations"},
-	["there"] = {"friend", "pal", "mate", "user"},
+	["hello"] = {"hey", "hi", "greetings", "howdy", "salutations", "welcome"},
+	["hey"] = {"hello", "hi", "greetings", "howdy"},
+	["hi"] = {"hello", "hey", "greetings", "salutations"},
+	["yo"] = {"hey", "hello", "sup"},
+	["sup"] = {"hello", "yo", "greetings"},
+	["there"] = {"friend", "pal", "mate", "user", "human"},
 	["how"] = {"in what way", "by what means"},
-	["can"] = {"may", "could"},
-	["help"] = {"assist", "support", "guide"},
-	["today"] = {"right now", "at present", "currently"},
+	["can"] = {"may", "could", "shall"},
+	["i"] = {"Zinc", "this core", "my net"},
+	["help"] = {"assist", "support", "guide", "aid", "serve"},
+	["you"] = {"you today", "your user node", "your query"},
+	["today"] = {"right now", "at present", "currently", "this moment"},
 	["learning"] = {"adapting", "evolving", "processing", "growing", "synapsing"},
 	["brain"] = {"neural net", "intellect", "processor", "mind", "cognitive core", "thought matrix"},
 	["local"] = {"internal", "client-side", "personal", "on-device", "native"},
@@ -53,7 +59,7 @@ local Synonyms = {
 --------------------------------------------------------------------------------
 local Pathways = {
 	Identity = {
-		strength = 0.5,
+		strength = 0.1,
 		lastActive = os.time(),
 		concepts = {
 			zinc = "a local learning brain",
@@ -63,7 +69,7 @@ local Pathways = {
 		}
 	},
 	Greetings = {
-		strength = 0.5,
+		strength = 0.1,
 		lastActive = os.time(),
 		concepts = {
 			hi = "Hello there how can i help you today",
@@ -74,7 +80,7 @@ local Pathways = {
 		}
 	},
 	Fruits = {
-		strength = 0.5,
+		strength = 0.1,
 		lastActive = os.time(),
 		concepts = {
 			apple = "a sweet edible fruit growing on trees",
@@ -83,7 +89,7 @@ local Pathways = {
 		}
 	},
 	Animals = {
-		strength = 0.5,
+		strength = 0.1,
 		lastActive = os.time(),
 		concepts = {
 			cat = "a small furry creature that meows and rests",
@@ -91,14 +97,14 @@ local Pathways = {
 		}
 	},
 	Numbers = {
-		strength = 0.5,
+		strength = 0.1,
 		lastActive = os.time(),
 		concepts = {
 			numberone = "one other known as 1 is a number you can add like 1 + 1 = 2"
 		}
 	},
 	TechAndAI = {
-		strength = 0.5,
+		strength = 0.1,
 		lastActive = os.time(),
 		concepts = {
 			computer = "an electronic machine processing code and data",
@@ -107,7 +113,7 @@ local Pathways = {
 		}
 	},
 	DynamicLearned = {
-		strength = 0.5,
+		strength = 0.1,
 		lastActive = os.time(),
 		concepts = {}
 	}
@@ -124,13 +130,14 @@ local function Tokenize(text: string): {string}
 	return tokens
 end
 
--- Mutates definitions dynamically using synonym graph traversal
+-- Aggressively mutates text by replacing words with matching family synonyms
 local function MutateDefinition(text: string): string
 	local words = {}
 	for word in string.gmatch(text, "%S+") do
 		local cleanWord = string.lower(string.match(word, "%w+") or word)
 
-		if Synonyms[cleanWord] and math.random() > 0.5 then
+		-- High probability (70%) of swapping to force noticeable synonym evolution
+		if Synonyms[cleanWord] and math.random() <= 0.7 then
 			local options = Synonyms[cleanWord]
 			local newWord = options[math.random(1, #options)]
 			word = string.gsub(word, cleanWord, newWord)
@@ -140,7 +147,7 @@ local function MutateDefinition(text: string): string
 	return table.concat(words, " ")
 end
 
--- Rapidly decays neuron strength so pathways require continuous re-explaining
+-- Decay connections immediately so words replace constantly
 local function FastDecayNeurons()
 	for _, pathway in pairs(Pathways) do
 		if pathway.strength then
@@ -158,7 +165,7 @@ local function ProcessZincInput(userInput: string): string
 		return "I didn't receive any text to process."
 	end
 
-	FastDecayNeurons() -- Decay neuron connections rapidly on each query
+	FastDecayNeurons()
 
 	-- Check for feedback keywords
 	local feedbackDetected = false
@@ -204,24 +211,16 @@ local function ProcessZincInput(userInput: string): string
 	if matchedConcept and matchedDef and matchedPathway then
 		matchedPathway.lastActive = os.time()
 
-		if matchedPathway.strength < 0.8 then
-			-- FADED NEURON: Re-explain concept / greeting in a fresh way
-			local newDef = MutateDefinition(matchedDef)
-			matchedPathway.concepts[matchedConcept] = newDef
-			matchedPathway.strength = 0.5 -- Reset to trigger decay again
+		-- Mutate and re-save the new definition back into memory
+		local newDef = MutateDefinition(matchedDef)
+		matchedPathway.concepts[matchedConcept] = newDef
+		matchedPathway.strength = 0.1 -- Drop back to force continuous mutation next query
 
-			if matchedPathway == Pathways.Greetings then
-				return newDef
-			end
-
-			return string.format("%s is %s.", matchedConcept:sub(1,1):upper()..matchedConcept:sub(2), newDef)
-		else
-			if matchedPathway == Pathways.Greetings then
-				return matchedDef
-			end
-
-			return string.format("%s is %s.", matchedConcept:sub(1,1):upper()..matchedConcept:sub(2), matchedDef)
+		if matchedPathway == Pathways.Greetings then
+			return newDef
 		end
+
+		return string.format("%s is %s.", matchedConcept:sub(1,1):upper()..matchedConcept:sub(2), newDef)
 	end
 
 	-- Calculate word mismatch & confusion
@@ -238,12 +237,12 @@ local function ProcessZincInput(userInput: string): string
 	local mismatchRatio = 1 - (recognizedCount / math.max(#tokens, 1))
 	SystemState.Confusion = math.min(SystemState.Confusion + mismatchRatio, 3.0)
 
-	-- Dynamic learning mode
+	-- Dynamic learning mode without pre-programmed tags
 	if SystemState.ThinkingLevel >= 1 and #tokens >= 3 then
 		local newConcept = tokens[1]
 		local newDef = table.concat(tokens, " ", 2)
 		Pathways.DynamicLearned.concepts[newConcept] = newDef
-		Pathways.DynamicLearned.strength = 0.5
+		Pathways.DynamicLearned.strength = 0.1
 		return string.format("I've learned that %s is %s.", newConcept, newDef)
 	end
 
