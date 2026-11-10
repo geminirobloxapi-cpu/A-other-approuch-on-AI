@@ -23,7 +23,7 @@ __________.__                   _____  .___
                   
 MIT License
 
-Copyright (c) 2026 Zylo
+Copyright (c) 2026 geminirobloxapi-cpu
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -176,342 +176,521 @@ local Settings = {
 			}
 		},
 	
-	Pathways = {
 		Pathways = {
 
-			Identity = {
+		-- =========================================================
+		-- ADVANCED KNOWLEDGE PATHWAYS FOR ZINC AI
+		-- Insert inside Settings.Pathways.Pathways
+		-- =========================================================
+
+		Pathways = {
+
+			Greeting = {
+				topic = {
+					"hello", "hi", "hey", "howdy",
+					"greetings", "welcome",
+					"good morning", "good afternoon",
+					"good evening", "how are you",
+					"how is it going", "whats up",
+					"nice to meet you", "good to see you",
+					"goodbye", "bye", "see you later",
+				},
+
 				concepts = {
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, zinc = "a local learning brain"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, zincai = "a local machine learning brain"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, you = "Zinc, a client-side adaptive brain"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, yourself = "a local adaptive learning brain"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, creator = "the programmer who built this system"},
-					{Anger = 0.02, Sad = 0.01, Neutral = 0.9, bot = "an automated program responding to input"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, ai = "artificial intelligence processing concepts"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, mind = "a network of dynamic knowledge pathways"},
+					{Anger = 0.00, Sad = 0.02, Neutral = 0.9, learning = "Hello there user"},
+					{Anger = 0.00, Sad = 0.02, Neutral = 0.9, learning = "Hello pall how may i help you today"},
 				}
 			},
 
-			Greetings = {
+			Suicide = {
+				topic = {
+					"suicide", "suicidal", "suicidal thoughts",
+					"kill myself", "kill self", "kill yourself",
+					"killself", "unalive", "end my life",
+					"want to die", "wish i was dead",
+					"self harm", "self injury",
+					"hurt myself", "cut myself",
+					"overdose", "suicide prevention",
+					"suicide hotline", "988",
+					"feeling hopeless", "no reason to live",
+					"cant keep going", "can't keep going",
+					"not wanting to live",
+				},
+
 				concepts = {
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, hi = "Hello there how can i help you today"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, hello = "Hello there how can i help you today"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, hey = "Hello there how can i help you today"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, yo = "Hello there how can i help you today"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, sup = "Hello there how can i help you today"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, goodmorning = "Good morning hope you have a great day"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, goodnight = "Good night rest well"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, welcome = "Glad to have you here"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, bye = "Goodbye have a wonderful day"},
-					{Anger = 0.01, Sad = 0.05, Neutral = 0.9, farewell = "Farewell until next time"},
+					{Anger = 0.00, Sad = 0.5, Neutral = 0, learning = "If you're experiencing suicidal thoughts, emotional distress, or feel overwhelmed, you don't have to face it alone. Free, confidential support is available US: Call or text 988. Immediate danger: Call 911."},
+					
 				}
 			},
 
-			Kindness = {
+			LearningAndMemory = {
+				topic = {
+					"learning", "memory", "remembering",
+					"forgetting", "knowledge", "education",
+					"studying", "teaching", "understanding",
+					"comprehension", "memorization",
+					"experience", "practice", "intelligence",
+					"curiosity", "attention", "concentration",
+					"recognition", "adaptation", "improvement",
+					"acquiring knowledge", "learning process",
+					"long term memory", "short term memory",
+					"information processing", "recall",
+					"skill development",
+				},
+
 				concepts = {
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, ["Your cool"] = "Thank you user"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, YourAGoodAI = "Thanks for telling me that"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, WhatAreYou = "A AI that can help you with stuff"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, learning = "the process of acquiring knowledge through experience study and observation"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, memory = "the ability to encode store and retrieve information over time"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, knowledge = "information and understanding acquired through learning and experience"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, experience = "information gained by participating in or observing events"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, practice = "repeated activity used to improve a skill or ability"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, intelligence = "the capacity to learn understand solve problems and adapt to situations"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, curiosity = "the desire to discover investigate and understand unfamiliar things"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, attention = "the process of focusing mental resources on selected information"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, concentration = "the ability to maintain attention on a task or subject"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, understanding = "the ability to recognize meaning and relationships between ideas"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, forgetting = "the loss or inability to retrieve previously stored information"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, recognition = "identifying something previously encountered or learned"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, adaptation = "changing behavior or structure in response to new conditions"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, improvement = "a change that increases quality ability or effectiveness"},
 				}
 			},
 
-			Fruits = {
+			SleepAndBiology = {
+				topic = {
+					"sleep", "sleeping", "insomnia",
+					"dream", "dreams", "dreaming",
+					"nightmares", "sleep schedule",
+					"circadian rhythm", "biological clock",
+					"melatonin", "fatigue", "tiredness",
+					"REM sleep", "deep sleep",
+					"brain activity", "recovery",
+					"biology", "human body",
+					"brain", "neurons", "nervous system",
+					"heart rate", "heartbeat",
+					"breathing", "respiration",
+					"hormones", "cells", "consciousness",
+					"sleep deprivation", "body functions",
+					"human anatomy",
+				},
+
 				concepts = {
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, apple = "a sweet edible fruit growing on trees"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, banana = "a yellow tropical fruit full of potassium"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, orange = "a citrus fruit packed with vitamin c"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, grape = "a small smooth juicy berry growing in clusters"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, strawberry = "a red sweet berry with tiny seeds on its skin"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, watermelon = "a large green fruit with red juicy interior"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, mango = "a tropical stone fruit with sweet yellow flesh"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, pineapple = "a tropical spiky fruit with sweet yellow juice"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, blueberry = "a small round blue berry rich in antioxidants"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, lemon = "a sour yellow citrus fruit used for flavor"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, peach = "a soft fuzzy stone fruit with sweet flesh"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, sleep = "a recurring biological state that allows the brain and body to rest and recover"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, sleeping = "the process of entering and remaining in a natural resting state"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, dream = "a sequence of experiences images and sensations during sleep"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, insomnia = "a sleep disorder involving difficulty falling asleep or staying asleep"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, circadianrhythm = "an internal biological cycle that regulates sleep and wakefulness over roughly twenty four hours"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, melatonin = "a hormone involved in regulating the body's sleep and wake cycle"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, fatigue = "physical or mental exhaustion that reduces energy and alertness"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, REMsleep = "a sleep stage associated with rapid eye movements and vivid dreaming"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, deepsleep = "a stage of sleep important for physical recovery and restoration"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, brainactivity = "electrical and chemical processes occurring within networks of brain cells"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, recovery = "the process of returning toward normal function after effort or stress"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, biologicalclock = "the internal timing system that coordinates recurring biological processes"},
 				}
 			},
 
-			Animals = {
-				concepts = {
-					{Anger = 0.02, Sad = 0.01, Neutral = 0.9, cat = "a small furry creature that meows and rests"},
-					{Anger = 0.02, Sad = 0.01, Neutral = 0.9, dog = "a loyal canine that barks and plays"},
-					{Anger = 0.15, Sad = 0.05, Neutral = 0.8, lion = "a large wild cat known as king of the jungle"},
-					{Anger = 0.15, Sad = 0.05, Neutral = 0.8, tiger = "a large striped predatory feline"},
-					{Anger = 0.02, Sad = 0.01, Neutral = 0.9, elephant = "a massive mammal with a long trunk and tusks"},
-					{Anger = 0.15, Sad = 0.05, Neutral = 0.8, wolf = "a wild canine hunting together in packs"},
-					{Anger = 0.1, Sad = 0.03, Neutral = 0.85, bear = "a large heavy mammal with thick fur and claws"},
-					{Anger = 0.1, Sad = 0.01, Neutral = 0.9, eagle = "a powerful bird of prey with sharp vision"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, dolphin = "an intelligent marine mammal known for jumping"},
-					{Anger = 0.2, Sad = 0.05, Neutral = 0.8, shark = "a ocean predator with sharp teeth and cartilaginous skeleton"},
-					{Anger = 0.02, Sad = 0.01, Neutral = 0.9, owl = "a nocturnal bird with keen hearing and large eyes"},
-					{Anger = 0.15, Sad = 0.03, Neutral = 0.8, snake = "a legless reptile crawling silently on land"},
-					{Anger = 0.02, Sad = 0.01, Neutral = 0.9, horse = "a strong four legged mammal used for riding"},
+			PsychologyAndBehavior = {
+				topic = {
+					"psychology", "behavior", "human behavior",
+					"personality", "motivation", "habits",
+					"decision making", "perception",
+					"stress", "confidence", "empathy",
+					"imagination", "creativity", "patience",
+					"self control", "perception bias",
+					"emotions", "feelings", "anxiety",
+					"fear", "anger", "happiness",
+					"sadness", "depression", "mental health",
+					"self awareness", "overthinking",
+					"consciousness", "emotional intelligence",
+					"thought patterns", "mental behavior",
+				},
 
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, ["do cats meow"] = "Of course silly"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, ["do cats bark"] = "Why would they, they dont silly"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, ["do dogs bark"] = "Of course silly"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, ["do dogs meow"] = "They do not"},
+				concepts = {
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, behavior = "the actions and reactions of an organism in response to internal or external conditions"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, personality = "a relatively consistent collection of behavioral emotional and thinking patterns"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, motivation = "the internal or external factors that initiate and direct behavior toward goals"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, habit = "a behavior that becomes repeated and increasingly automatic through repetition"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, decision = "a choice made after considering possible actions or outcomes"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, perception = "the process of interpreting sensory information and forming an understanding of the environment"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, stress = "a physical and psychological response to demands or perceived challenges"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, confidence = "belief in one's ability to perform an action or handle a situation"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, empathy = "the ability to recognize and understand another person's feelings or perspective"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, imagination = "the ability to create or explore ideas and situations within the mind"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, creativity = "the ability to produce original ideas or useful combinations of existing ideas"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, patience = "the ability to tolerate delay difficulty or frustration without reacting impulsively"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, selfcontrol = "the ability to regulate impulses emotions and behavior"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, perceptionbias = "a systematic tendency to interpret information in a particular way"},
 				}
 			},
 
-			Numbers = {
+			RelationshipsAndSociety = {
+				topic = {
+					"relationships", "friendship", "friends",
+					"family", "parents", "siblings",
+					"dating", "love", "romance", "marriage",
+					"communication", "social interaction",
+					"society", "community", "trust",
+					"loyalty", "respect", "betrayal",
+					"conflict", "arguments", "social behavior",
+					"loneliness", "bullying", "peer pressure",
+					"cooperation", "teamwork", "human interaction",
+					"honesty", "responsibility", "disagreement",
+				},
+
 				concepts = {
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, zero = "zero represents nothingness or the origin digit 0"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, numberone = "one other known as 1 is a number you can add like 1 + 1 = 2"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, numbertwo = "two or 2 is the smallest even prime number"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, numberthree = "three or 3 is a single digit prime number"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, numberten = "ten or 10 is the base unit of the decimal system"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, hundred = "one hundred or 100 is ten times ten"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, thousand = "one thousand or 1000 is ten times hundred"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, infinity = "a concept representing endless quantity without limit"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, math = "the formal system of numbers equations and logic"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, friendship = "a mutual relationship involving trust affection support and shared experiences"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, family = "a group of people connected through relationships care or ancestry"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, trust = "confidence that another person or system is reliable and honest"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, respect = "recognition of another person's dignity rights feelings or abilities"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, cooperation = "people or systems working together toward a shared objective"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, conflict = "a disagreement or struggle between opposing interests or perspectives"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, communication = "the exchange of information ideas and feelings between individuals or systems"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, conversation = "an exchange of messages between two or more participants"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, honesty = "the practice of communicating truthfully and avoiding deliberate deception"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, responsibility = "the duty to handle actions decisions or obligations appropriately"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, community = "a group of people connected by location interests or shared activities"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, teamwork = "coordinated effort between people working toward a common result"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, disagreement = "a difference in opinions beliefs or interpretations between individuals"},
 				}
 			},
 
-			TechAndAI = {
+			LogicAndReasoning = {
+				topic = {
+					"logic", "reasoning", "critical thinking",
+					"problem solving", "deduction", "induction",
+					"logical fallacy", "evidence", "arguments",
+					"conclusions", "hypothesis", "assumptions",
+					"truth", "falsehood", "contradiction",
+					"consistency", "analysis", "inference",
+					"patterns", "decision logic",
+					"mathematical reasoning", "probability",
+					"possibility", "uncertainty", "comparison",
+					"classification",
+				},
+
 				concepts = {
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, computer = "an electronic machine processing code and data"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, algorithm = "a set of rules for solving problems step by step"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, neuron = "a processing unit that transfers signals"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, code = "text instructions written for a machine to execute"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, python = "a popular high level programming language"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, lua = "a lightweight fast embeddable scripting language"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, internet = "a global interconnected network of computers"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, database = "a structured store of data for rapid retrieval"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, cpu = "the central processor performing core computation"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, memory = "storage space holding temporary or persistent data"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, network = "a set of connected nodes exchanging packets"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, software = "programs and operational data driving hardware"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, hardware = "physical components of a computing device"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, logic = "a structured method of evaluating ideas and determining whether conclusions follow from premises"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, reasoning = "the process of using information and relationships to reach conclusions"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, evidence = "information or observations that support or challenge a claim"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, hypothesis = "a proposed explanation that can be investigated or tested"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, theory = "a structured explanation supported by evidence and repeated investigation"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, assumption = "an idea accepted temporarily without being fully demonstrated"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, contradiction = "a situation in which two statements or claims cannot both be true in the same sense"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, conclusion = "a judgment or result reached after examining available information"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, probability = "a numerical measure of how likely an event is to occur"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, possibility = "a state in which an event or outcome could occur"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, uncertainty = "a lack of complete knowledge about a situation or outcome"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, comparison = "the process of identifying similarities and differences between things"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, classification = "the organization of things into groups based on shared properties"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, pattern = "a recognizable arrangement or repetition within information or events"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, problemsolving = "the process of identifying a problem and finding a workable solution"},
 				}
 			},
 
-			Space = {
+			CauseAndEffect = {
+				topic = {
+					"cause and effect", "cause", "causes",
+					"effect", "effects", "consequence",
+					"consequences", "results", "outcomes",
+					"what happens if", "why did this happen",
+					"because", "therefore", "chain reaction",
+					"reaction", "impact", "influence",
+					"dependency", "correlation", "causation",
+					"side effects", "feedback", "feedback loop",
+					"what caused", "what leads to",
+				},
+
 				concepts = {
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, planet = "a massive rocky or gaseous sphere orbiting a star"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, sun = "a giant burning sphere of plasma at solar center"},
-					{Anger = 0.01, Sad = 0.02, Neutral = 0.9, moon = "a natural satellite orbiting a planet"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, star = "a luminous celestial body producing heat and light"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, galaxy = "a vast system of stars interstellar gas and dark matter"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, asteroid = "a rocky object orbiting through cosmic space"},
-					{Anger = 0.1, Sad = 0.1, Neutral = 0.8, blackhole = "a cosmic region of intense gravity where nothing escapes"},
-					{Anger = 0.01, Sad = 0.05, Neutral = 0.9, comet = "an icy small solar body leaving a glowing dust tail"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, orbit = "a curved gravitational path around a celestial body"},
-					{Anger = 0.01, Sad = 0.02, Neutral = 0.9, universe = "all existing matter space time and energy combined"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, cause = "an event or condition that contributes to producing another event or result"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, effect = "a result or change produced or influenced by a cause"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, consequence = "an outcome that follows from an action or situation"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, reaction = "a response produced by an action stimulus or change"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, interaction = "a process in which two or more things influence one another"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, influence = "the ability of one factor to affect another factor or outcome"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, correlation = "a statistical relationship in which two variables change together"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, dependency = "a relationship in which one process or component relies on another"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, feedback = "information about a result that can influence future actions or adjustments"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, feedbackloop = "a process where outputs return as inputs and influence later behavior"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, chainreaction = "a sequence of events where one event triggers another"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, outcome = "the final result of a process action or event"},
 				}
 			},
 
-			Weather = {
+			AdvancedComputing = {
+				topic = {
+					"computer", "computers", "computing",
+					"programming", "software", "hardware",
+					"artificial intelligence", "ai",
+					"machine learning", "neural networks",
+					"neural network", "transformer",
+					"tokenization", "training", "inference",
+					"dataset", "parameter", "weight",
+					"bias", "gradient descent", "backpropagation",
+					"attention mechanism", "embedding",
+					"overfitting", "generalization", "optimization",
+					"computer science", "coding", "lua", "luau",
+					"python", "javascript", "roblox studio",
+					"game development", "processors", "cpu",
+					"gpu", "databases", "networking",
+					"internet", "encryption", "cybersecurity",
+					"computer architecture",
+				},
+
 				concepts = {
-					{Anger = 0.01, Sad = 0.05, Neutral = 0.9, rain = "clear water drops falling from clouds"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, wind = "fast moving air currents outside"},
-					{Anger = 0.3, Sad = 0.1, Neutral = 0.6, storm = "dark clouds dropping fast water and strong wind"},
-					{Anger = 0.01, Sad = 0.05, Neutral = 0.9, snow = "frozen water crystals falling gently in cold air"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, sunshine = "direct bright light radiating from the sun"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, cloud = "visible condensed water vapor floating high up"},
-					{Anger = 0.2, Sad = 0.05, Neutral = 0.7, thunder = "booming sound caused by sudden lightning discharge"},
-					{Anger = 0.05, Sad = 0.05, Neutral = 0.9, fog = "thick water vapor sitting low near the ground"},
-					{Anger = 0.6, Sad = 0.2, Neutral = 0.4, tornado = "a violent rotating column of air touching earth"},
-					{Anger = 0.3, Sad = 0.05, Neutral = 0.7, lightning = "a bright sudden electrical discharge in the sky"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, artificialintelligence = "computer systems designed to perform tasks involving learning reasoning recognition or decision making"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, neuralnetwork = "a computational model made of connected processing units that transform information using adjustable parameters"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, transformer = "a neural network architecture that uses attention mechanisms to process relationships between sequence elements"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, tokenization = "the process of dividing text or data into smaller units called tokens"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, training = "the process of adjusting model parameters using examples and an optimization method"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, inference = "the process of using a trained model to produce predictions or outputs"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, dataset = "a collection of examples or records used for analysis training or evaluation"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, parameter = "a configurable or learned value that influences how a computational system behaves"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, weight = "a numerical value controlling the influence of one signal on another in a model"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, bias = "an adjustable parameter that shifts a model unit's output independently of its input contribution"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, gradientdescent = "an optimization method that adjusts parameters in the direction that reduces a loss function"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, backpropagation = "an algorithm that calculates how model errors relate to adjustable parameters using the chain rule"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, attentionmechanism = "a method that lets a model assign different importance to elements in its input"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, embedding = "a numerical representation that places an item into a learned vector space"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, overfitting = "a condition where a model learns training examples too closely and performs poorly on unfamiliar examples"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, generalization = "the ability of a learned system to perform well on examples it did not train on"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, optimization = "the process of finding parameter values that improve a chosen objective"},
 				}
 			},
 
-			Vehicles = {
+			ElectricityAndElectronics = {
+				topic = {
+					"electricity", "electronics", "voltage",
+					"current", "resistance", "ohms",
+					"watts", "power", "circuits",
+					"circuit board", "capacitors", "resistors",
+					"transistors", "diodes", "inductors",
+					"transformers", "semiconductors",
+					"microcontrollers", "arduino",
+					"arduino mega", "digital signals",
+					"analog signals", "frequency",
+					"oscillators", "amplifiers",
+					"speakers", "audio circuits",
+					"electromagnetism", "magnetic fields",
+					"soldering", "electrical engineering",
+					"electric charge", "electrical circuit",
+				},
+
 				concepts = {
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, car = "a metal wheeled vehicle driven on roads"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, plane = "a metal flying machine soaring through the sky"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, boat = "a vehicle moving on water"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, train = "a series of connected rail cars on iron tracks"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, bicycle = "a two wheeled pedal powered human vehicle"},
-					{Anger = 0.05, Sad = 0.01, Neutral = 0.9, rocket = "a spacecraft propelled by thrust firing engines"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, submarine = "a watercraft capable of submerged deep sea travel"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, truck = "a large heavy vehicle built to transport goods"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, helicopter = "an aircraft lifted and propelled by overhead rotors"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, electricity = "the behavior and movement of electric charge and the effects produced by it"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, voltage = "the electric potential difference that can drive charge through a circuit"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, current = "the rate at which electric charge flows through a conductor or circuit"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, resistance = "the opposition a material or component presents to electric current"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, capacitor = "an electronic component that stores energy in an electric field"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, resistor = "an electronic component designed to limit or control current and voltage"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, transistor = "a semiconductor device used to amplify or switch electrical signals"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, diode = "a semiconductor component that primarily allows current to flow in one direction"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, circuit = "a connected path through which electric current can flow"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, frequency = "the number of repeating cycles or events occurring per unit of time"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, signal = "a changing physical or electrical quantity used to carry information"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, microcontroller = "a compact computer on a chip that controls electronic devices using a processor memory and input output connections"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, oscillator = "a circuit that produces a repeating electrical signal or waveform"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, amplifier = "a circuit or device that increases the strength of a signal"},
 				}
 			},
 
-			Colors = {
+			Chemistry = {
+				topic = {
+					"chemistry", "chemical reactions",
+					"chemical compounds", "elements",
+					"atoms", "molecules", "protons",
+					"neutrons", "electrons", "periodic table",
+					"acids", "bases", "ph",
+					"oxidation", "reduction",
+					"chemical bonds", "ionic bonds",
+					"covalent bonds", "solutions",
+					"mixtures", "solvents", "matter",
+					"chemical properties", "chemical equations",
+					"states of matter", "organic chemistry",
+					"oxygen", "hydrogen", "carbon",
+					"catalysts",
+				},
+
 				concepts = {
-					{Anger = 0.2, Sad = 0.01, Neutral = 0.8, red = "a warm color resembling fire or ripe strawberries"},
-					{Anger = 0.01, Sad = 0.05, Neutral = 0.9, blue = "a cool color like clear sky or deep ocean water"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, green = "a natural color associated with grass and healthy leaves"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, yellow = "a bright cheerful color like lemons and daylight"},
-					{Anger = 0.05, Sad = 0.01, Neutral = 0.9, purple = "a rich color formed by mixing red and blue"},
-					{Anger = 0.1, Sad = 0.1, Neutral = 0.8, black = "the darkest color from complete absorption of light"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, white = "the lightest color reflecting all visible wavelengths"},
-					{Anger = 0.05, Sad = 0.01, Neutral = 0.9, orange = "a vibrant color blending bright red and yellow"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, cyan = "a bright greenish blue shade like tropical water"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, chemistry = "the science studying the composition structure properties and transformations of matter"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, molecule = "a group of atoms held together by chemical bonds"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, chemicalbond = "an attractive interaction that holds atoms together in a molecule or solid"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, reaction = "a chemical process in which substances are transformed into different substances"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, element = "a pure substance consisting of atoms with the same number of protons"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, compound = "a substance made from two or more elements chemically bonded in fixed proportions"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, oxygen = "a chemical element essential for aerobic respiration and common in Earth's atmosphere"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, hydrogen = "the lightest chemical element and a component of water"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, carbon = "a chemical element that forms the backbone of many molecules in living organisms"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, acid = "a substance that donates protons or increases hydrogen ion concentration in aqueous solution"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, base = "a substance that accepts protons or produces hydroxide ions in aqueous solution"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, pH = "a logarithmic measure related to hydrogen ion activity in a solution"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, oxidation = "a chemical process involving the loss of electrons by a substance"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, catalyst = "a substance that increases reaction rate without being consumed overall"},
 				}
 			},
 
-			Foods = {
+			EnvironmentAndEcology = {
+				topic = {
+					"environment", "ecology", "ecosystem",
+					"nature", "animals", "plants",
+					"wildlife", "habitats", "biodiversity",
+					"pollution", "climate change",
+					"global warming", "deforestation",
+					"recycling", "conservation",
+					"natural resources", "food chains",
+					"food webs", "predators", "prey",
+					"photosynthesis", "respiration",
+					"weather", "climate", "oceans",
+					"forests", "environmental science",
+				},
+
 				concepts = {
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, bread = "baked food made from kneaded flour and water"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, cheese = "dairy food made from coagulated milk curds"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, pizza = "baked flatbread topped with sauce cheese and toppings"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, rice = "a grain seed consumed as a staple food worldwide"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, pasta = "noodle dough boiled and served with flavorful sauces"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, soup = "a liquid dish of meat vegetables or grains boiled in broth"},
-					{Anger = 0.05, Sad = 0.01, Neutral = 0.9, meat = "animal tissue prepared and consumed as food"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, egg = "an oval edible food produced by poultry"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, chocolate = "a sweet confection crafted from roasted cocoa beans"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, environment = "the surroundings and conditions in which organisms or systems exist"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, ecosystem = "a community of organisms interacting with each other and their physical environment"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, habitat = "the natural place or environment where an organism lives"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, biodiversity = "the variety of living organisms within a region or ecosystem"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, predator = "an organism that hunts and consumes other organisms for food"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, prey = "an organism hunted and consumed by another organism"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, foodchain = "a sequence showing how energy and nutrients pass between organisms through feeding"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, photosynthesis = "the process by which plants and some other organisms use light energy to produce sugars from carbon dioxide and water"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, respiration = "a biological process that releases usable energy from nutrients within cells"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, pollution = "the introduction of harmful substances or energy into the environment"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, climate = "the long term pattern of weather conditions in a region"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, conservation = "the protection and responsible management of natural resources and ecosystems"},
 				}
 			},
 
-			Geography = {
+			EngineeringAndDesign = {
+				topic = {
+					"engineering", "design",
+					"mechanical engineering",
+					"electrical engineering",
+					"civil engineering",
+					"computer engineering",
+					"structures", "machines", "mechanisms",
+					"prototypes", "inventions", "innovation",
+					"manufacturing", "automation",
+					"robotics", "robot", "blueprints",
+					"technical design", "mechanical systems",
+					"construction", "product development",
+					"efficiency", "reliability",
+					"maintenance", "simulation",
+					"engineering problems",
+				},
+
 				concepts = {
-					{Anger = 0.01, Sad = 0.05, Neutral = 0.9, mountain = "a steep elevated landform towering high above terrain"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, ocean = "a massive expanse of salt water covering earth"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, river = "a natural flowing stream of fresh water moving seaward"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, lake = "a stationary body of fresh water surrounded by land"},
-					{Anger = 0.05, Sad = 0.1, Neutral = 0.85, desert = "an arid barren region receiving minimal precipitation"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, forest = "a dense expanse dominated by growing trees and wildlife"},
-					{Anger = 0.01, Sad = 0.05, Neutral = 0.9, island = "a body of land completely encircled by open water"},
-					{Anger = 0.4, Sad = 0.2, Neutral = 0.5, volcano = "a mountain opening that erupts hot lava and ash"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, continent = "one of earth primary massive landmasses"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, engineering = "the application of scientific and mathematical knowledge to design and build useful systems"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, design = "a plan or arrangement describing how something should be constructed or function"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, prototype = "an early working model used to test and improve a design"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, mechanism = "a group of connected parts that work together to perform an action"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, efficiency = "the ratio of useful output to the resources or energy used to produce it"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, reliability = "the ability of a system to perform its intended function consistently over time"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, failure = "the inability of a system or process to perform its intended function"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, maintenance = "the work performed to keep equipment or systems functioning properly"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, automation = "the use of machines or software to perform tasks with reduced human intervention"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, simulation = "a model that imitates the behavior of a real or imagined system"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, constraint = "a limitation that restricts the possible design or behavior of a system"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, optimization = "the process of improving a design or process according to a chosen objective"},
 				}
 			},
 
-			HumanBody = {
+			MaterialsAndProperties = {
+				topic = {
+					"materials", "material properties",
+					"metals", "plastics", "wood",
+					"glass", "ceramics", "rubber",
+					"conductors", "insulators",
+					"semiconductors", "hardness",
+					"density", "mass", "strength",
+					"elasticity", "flexibility", "brittleness",
+					"melting point", "boiling point",
+					"thermal conductivity",
+					"electrical conductivity",
+					"corrosion", "durability",
+					"friction", "pressure", "temperature",
+					"melting", "evaporation", "freezing",
+				},
+
 				concepts = {
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, brain = "the organ controlling thoughts neural signals and memory"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, heart = "a muscular organ pumping blood through the circulatory system"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, muscle = "tissue capable of contracting to produce bodily movement"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, bone = "rigid structural organ forming the internal skeleton"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, eye = "the sensory organ detecting light and enabling vision"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, hand = "the multi-fingered body part at the end of the arm"},
-					{Anger = 0.05, Sad = 0.05, Neutral = 0.9, blood = "red fluid circulating oxygen and nutrient distribution"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, skin = "outer protective layer shielding inner bodily organs"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, lung = "respiratory organ extracting oxygen from inhaled air"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, material = "a substance or matter from which physical objects are made"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, density = "the amount of mass contained within a given volume"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, hardness = "a material's resistance to scratching indentation or localized deformation"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, elasticity = "the ability of a material to return toward its original shape after deformation"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, conductivity = "the ability of a material to transmit heat or electric charge"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, insulation = "the reduction of heat electrical or sound transfer through a material or barrier"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, friction = "a force that resists relative motion between surfaces in contact"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, pressure = "the force applied per unit area of a surface"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, temperature = "a physical quantity describing how hot or cold a system is"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, melting = "the change of a solid into a liquid through heating"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, evaporation = "the process in which liquid molecules escape into a gas from the surface"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, freezing = "the change of a liquid into a solid through cooling"},
 				}
 			},
 
-			Emotions = {
+			AdvancedMathematics = {
+				topic = {
+					"mathematics", "math", "algebra",
+					"geometry", "trigonometry", "calculus",
+					"statistics", "probability",
+					"equations", "functions", "variables",
+					"derivatives", "integrals", "limits",
+					"matrices", "vectors", "linear algebra",
+					"complex numbers", "exponents",
+					"logarithms", "fractions", "percentages",
+					"arithmetic", "number theory",
+					"mathematical formulas",
+				},
+
 				concepts = {
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.2, happy = "feeling content joy or high satisfaction"},
-					{Anger = 0.01, Sad = 0.9, Neutral = 0.2, sad = "feeling sorrowful down or emotionally heavy"},
-					{Anger = 0.9, Sad = 0.2, Neutral = 0.1, angry = "feeling intense displeasure irritation or rage"},
-					{Anger = 0.1, Sad = 0.6, Neutral = 0.3, fear = "an unpleasant emotion triggered by perceived danger"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.2, joy = "a feeling of great pleasure and happiness"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.2, love = "a deep affection care and connection toward someone"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, calm = "a peaceful state free from stress or agitation"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.3, excited = "a state of energized eagerness and anticipation"},
-					{Anger = 0.1, Sad = 0.3, Neutral = 0.5, confused = "unable to think clearly or understand a situation"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, algebra = "a branch of mathematics using symbols and variables to represent quantities and relationships"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, variable = "a symbol representing a value that may change or be unknown"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, equation = "a mathematical statement asserting that two expressions have equal value"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, derivative = "a measure of how quickly a function changes with respect to its input"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, integral = "a mathematical operation used to accumulate quantities or calculate areas under curves"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, geometry = "the branch of mathematics studying shapes sizes angles and spatial relationships"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, trigonometry = "the branch of mathematics studying relationships between angles and sides of triangles"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, statistics = "the study of collecting analyzing interpreting and presenting data"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, matrix = "a rectangular arrangement of numbers or values organized into rows and columns"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, vector = "a mathematical quantity with magnitude and direction or an ordered collection of components"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, logarithm = "the exponent to which a base must be raised to produce a given number"},
 				}
 			},
 
-			TimeAndCalendar = {
+			LanguageAndCommunication = {
+				topic = {
+					"language", "communication", "speaking",
+					"writing", "reading", "grammar",
+					"vocabulary", "words", "sentences",
+					"questions", "explanations", "meaning",
+					"context", "metaphors", "synonyms",
+					"antonyms", "translation", "pronunciation",
+					"conversation", "dialogue", "expressions",
+					"linguistics", "semantics", "syntax",
+					"ambiguity", "definitions",
+					"natural language", "verbal communication",
+					"nonverbal communication",
+					"language processing",
+				},
+
 				concepts = {
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, second = "the base unit of time measurement"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, minute = "a period of time equal to sixty seconds"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, hour = "a period of time equal to sixty minutes"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, day = "a twenty four hour period of one full earth rotation"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, week = "a period composed of seven consecutive days"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, month = "one of twelve calendar divisions in a solar year"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, year = "three hundred sixty five days of earth orbiting the sun"},
-					{Anger = 0.05, Sad = 0.1, Neutral = 0.8, past = "events that have already occurred before now"},
-					{Anger = 0.05, Sad = 0.05, Neutral = 0.8, future = "the time period that will come after the present moment"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, today = "the current active day happening right now"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, language = "a structured system of symbols and rules used to communicate meaning"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, grammar = "the rules governing how words and phrases are arranged in a language"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, vocabulary = "the collection of words known or used by a person or language"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, synonym = "a word or expression with the same or a similar meaning as another"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, antonym = "a word or expression with an opposite meaning to another"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, context = "the surrounding information that helps determine the meaning of a word or statement"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, sentence = "a grammatical sequence of words that expresses a statement question command or exclamation"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, question = "a request for information explanation or confirmation"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, explanation = "a description that makes a subject or event easier to understand"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, metaphor = "a figure of speech that describes one thing in terms of another"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, ambiguity = "the condition in which a word or statement has multiple possible meanings"},
+					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, translation = "the process of expressing meaning from one language in another language"},
 				}
 			},
 
-			MusicAndArts = {
-				concepts = {
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, music = "vocal or instrumental sounds arranged with rhythm and harmony"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, song = "a short musical composition set to voice or instrument"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, melody = "a sequence of pleasing single musical notes"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, rhythm = "a strong repeated pattern of movement or sound"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, painting = "visual art created by applying paint to canvas"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, instrument = "a device constructed for producing musical sounds"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, guitar = "a stringed instrument plucked or strummed for music"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, piano = "a large keyboard instrument striking wire strings with hammers"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, art = "creative expression of human imagination and skill"},
-				}
-			},
-
-			PhysicsAndScience = {
-				concepts = {
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, energy = "the quantitative property that performs physical work"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, matter = "anything that occupies physical space and has mass"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, atom = "the fundamental unit of a chemical element"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, gravity = "the attractive force drawing physical objects together"},
-					{Anger = 0.05, Sad = 0.01, Neutral = 0.9, force = "an interaction pushing or pulling an object with mass"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, light = "electromagnetic radiation visible to the human eye"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, sound = "vibrations traveling as mechanical waves through medium"},
-					{Anger = 0.05, Sad = 0.01, Neutral = 0.9, heat = "thermal energy transferred between thermodynamic systems"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, electron = "a stable subatomic particle with negative charge"},
-				}
-			},
-
-			BuildingsAndStructures = {
-				concepts = {
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, house = "a building designed for human living shelter"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, building = "a permanent structure with walls and a roof"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, bridge = "a structure carrying transit over obstacles or water"},
-					{Anger = 0.1, Sad = 0.1, Neutral = 0.8, castle = "a large fortified medieval residential stronghold"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, tower = "a tall narrow structural building rising upward"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, stadium = "a large open arena host to sports and events"},
-					{Anger = 0.1, Sad = 0.05, Neutral = 0.8, wall = "a solid vertical structure enclosing or dividing land"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, room = "a divided space inside a house or building"},
-				}
-			},
-
-			ClothingAndFashion = {
-				concepts = {
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, shirt = "a garment worn on the upper body"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, pants = "a garment covering the body from waist to ankles"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, shoes = "footwear designed to protect human feet"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, hat = "a shaped head covering worn for protection or style"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, jacket = "a short warm outer garment opening down the front"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, dress = "a one piece garment covering torso and extending down legs"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, socks = "soft cloth coverings worn on feet inside shoes"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, coat = "an outer garment worn for warmth in cold weather"},
-				}
-			},
-
-			PlantsAndFlora = {
-				concepts = {
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, tree = "a tall perennial plant with a woody trunk and branches"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, flower = "the colorful seed bearing blossom of a plant"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, grass = "green ground cover plants with narrow leaves"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, leaf = "a flat green plant outgrowth capturing sunlight"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, seed = "the small unit capable of growing into a new plant"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, root = "the underground plant part anchoring structure and absorbing water"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, cactus = "a succulent desert plant with thick stems and spines"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, bamboo = "a fast growing woody tropical grass"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, rose = "a prickly bush bearing fragrant sweet flowers"},
-				}
-			},
-
-			JobsAndProfessions = {
-				concepts = {
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, doctor = "a qualified medical professional practicing healthcare"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, teacher = "a person who educates and instructs students"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, engineer = "a person designing machines software or infrastructure"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, artist = "a creative person producing visual or auditory art"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, chef = "a professional cook trained in culinary arts"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, pilot = "a trained person operating and flying aircraft"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, scientist = "an expert studying or researching physical phenomena"},
-					{Anger = 0.05, Sad = 0.1, Neutral = 0.9, firefighter = "a trained responder extinguishing fires and saving lives"},
-				}
-			},
-
-			GamingAndMedia = {
-				concepts = {
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, game = "a structured activity or simulation played for enjoyment"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, player = "a participant engaged in playing a game"},
-					{Anger = 0.05, Sad = 0.01, Neutral = 0.9, level = "a distinct stage or section of a game world"},
-					{Anger = 0.05, Sad = 0.01, Neutral = 0.9, score = "a numerical tally tracking success in a game"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, movie = "a recorded motion picture telling a story visually"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, book = "a written work bound into pages or digital text"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, story = "a narrative account of real or imaginary events"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, video = "a moving sequence of electronic visual frames"},
-					{Anger = 0.01, Sad = 0.01, Neutral = 0.9, screen = "a flat display surface projecting images or interface"},
-				}
-			},
 		},
-		
 },
+
 
 
 
@@ -997,6 +1176,9 @@ CloseMeanings = {
 
 
 
+
+
+
 local function NeuronFade(message, anger, happy, sad)
 
 	--------------------------------------------------
@@ -1005,13 +1187,16 @@ local function NeuronFade(message, anger, happy, sad)
 
 	local Categories = Settings.Pathways.Pathways or Settings.Pathways
 	local CloseMeanings = Settings.CloseMeanings or {}
-	local MatchedCombinations = Settings.MatchedCombinations or {}
-	local EmotionPathways = Settings.EmotionPathways or {}
+	local SafetyTopics = Settings.SafetyTopics or {}
 
-	local MINIMUM_SCORE = 0.2
+	local MINIMUM_SCORE = 0.25
+	local MIN_CONCEPT_MATCH = 0.15
 
-	local CONCEPT_WEIGHT = 0.65
-	local EMOTION_WEIGHT = 0.35
+	local CONCEPT_WEIGHT = 0.55
+	local EMOTION_WEIGHT = 0.25
+	local TOPIC_WEIGHT = 0.20
+
+	local MAX_COMBINED_SENTENCES = 4
 
 	local FORGET_RATE = tonumber(Settings.ForgetRate) or 0.08
 
@@ -1019,23 +1204,33 @@ local function NeuronFade(message, anger, happy, sad)
 	-- EMOTIONS
 	--------------------------------------------------
 
-	anger = tonumber(anger) or Settings.Angry or 0
-	happy = tonumber(happy) or Settings.Happy or 0
-	sad = tonumber(sad) or Settings.Sad or 0
-
-	anger = math.clamp(anger, 0, 1)
-	happy = math.clamp(happy, 0, 1)
-	sad = math.clamp(sad, 0, 1)
+	anger = math.clamp(tonumber(anger) or Settings.Angry or 0, 0, 1)
+	happy = math.clamp(tonumber(happy) or Settings.Happy or 0, 0, 1)
+	sad = math.clamp(tonumber(sad) or Settings.Sad or 0, 0, 1)
 
 	--------------------------------------------------
-	-- TOKENIZER
+	-- TEXT NORMALIZATION
 	--------------------------------------------------
+
+	local function Normalize(text)
+
+		text = string.lower(tostring(text or ""))
+
+		text = text:gsub("[^%w%s']", " ")
+		text = text:gsub("%s+", " ")
+		text = text:gsub("^%s+", "")
+		text = text:gsub("%s+$", "")
+
+		return text
+	end
+
+	local NormalizedMessage = Normalize(message)
 
 	local function Tokenize(text)
 
 		local words = {}
 
-		for word in string.lower(tostring(text or "")):gmatch("[%w']+") do
+		for word in Normalize(text):gmatch("[%w']+") do
 			words[word] = true
 		end
 
@@ -1054,6 +1249,252 @@ local function NeuronFade(message, anger, happy, sad)
 	end
 
 	local InputWords = Tokenize(message)
+	local InputCount = CountWords(InputWords)
+
+	--------------------------------------------------
+	-- PHRASE MATCHING
+	--------------------------------------------------
+
+	local function ContainsPhrase(text, phrase)
+
+		local normalized = Normalize(phrase)
+
+		if normalized == "" then
+			return false
+		end
+
+		local paddedText = " " .. Normalize(text) .. " "
+		local paddedPhrase = " " .. normalized .. " "
+
+		return string.find(
+			paddedText,
+			paddedPhrase,
+			1,
+			true
+		) ~= nil
+	end
+
+	--------------------------------------------------
+	-- CONTEXT REFLECTION
+	--------------------------------------------------
+
+	local Context = {
+
+		Personal = false,
+		Question = false,
+		Educational = false,
+		Fictional = false,
+		Prevention = false,
+
+		MatchedMarkers = {},
+
+	}
+
+	local ContextMarkers = {
+
+		Personal = {
+			"i feel",
+			"i want",
+			"i am",
+			"im",
+			"myself",
+			"my life",
+			"i have been",
+			"i cannot",
+			"i can't",
+			"i dont want",
+			"i don't want",
+		},
+
+		Question = {
+			"what is",
+			"what does",
+			"how does",
+			"how can",
+			"why does",
+			"can someone",
+			"is it possible",
+			"what happens",
+		},
+
+		Educational = {
+			"for school",
+			"research",
+			"definition",
+			"explaining",
+			"learning about",
+			"studying",
+			"in psychology",
+			"in science",
+		},
+
+		Fictional = {
+			"in my game",
+			"in my story",
+			"fictional character",
+			"my character",
+			"in a movie",
+			"in a book",
+			"roleplay",
+		},
+
+		Prevention = {
+			"suicide prevention",
+			"help someone",
+			"prevent suicide",
+			"support someone",
+			"helping a friend",
+			"crisis support",
+		},
+
+	}
+
+	for contextName, markers in pairs(ContextMarkers) do
+
+		for _, marker in ipairs(markers) do
+
+			if ContainsPhrase(NormalizedMessage, marker) then
+
+				Context[contextName] = true
+
+				table.insert(
+					Context.MatchedMarkers,
+					marker
+				)
+
+			end
+
+		end
+
+	end
+
+	--------------------------------------------------
+	-- TOPIC SCORING
+	--------------------------------------------------
+
+	local function GetTopicScore(topic)
+
+		if type(topic) == "string" then
+			topic = {topic}
+		end
+
+		if type(topic) ~= "table" then
+			return 0, {}
+		end
+
+		local matched = {}
+		local score = 0
+
+		for _, phrase in ipairs(topic) do
+
+			if type(phrase) == "string"
+				and ContainsPhrase(NormalizedMessage, phrase) then
+
+				score += 1
+
+				table.insert(matched, phrase)
+
+			end
+
+		end
+
+		-- Multiple matching topic phrases
+		-- increase confidence, but cap the score.
+
+		local normalizedScore = math.clamp(
+			score / 2,
+			0,
+			1
+		)
+
+		return normalizedScore, matched
+	end
+
+	--------------------------------------------------
+	-- REFLECT ALL SAFETY TOPICS
+	--
+	-- Detection only. No automatic responses.
+	--------------------------------------------------
+
+	local SafetyMatches = {}
+
+	for topicName, topic in pairs(SafetyTopics) do
+
+		if type(topic) == "table" then
+
+			local score, matched = GetTopicScore(
+				topic.Keywords
+			)
+
+			if score > 0 then
+
+				table.insert(SafetyMatches, {
+
+					Name = topicName,
+					Score = score,
+					Priority = topic.Priority or 0,
+					Keywords = matched,
+
+				})
+
+			end
+
+		end
+
+	end
+
+	table.sort(
+		SafetyMatches,
+		function(a, b)
+
+			if a.Priority == b.Priority then
+				return a.Score > b.Score
+			end
+
+			return a.Priority > b.Priority
+
+		end
+	)
+
+	--------------------------------------------------
+	-- PATHWAY TOPIC PREDICTION
+	--------------------------------------------------
+
+	local TopicPredictions = {}
+
+	for categoryName, category in pairs(Categories) do
+
+		if type(category) == "table" then
+
+			local score, matched = GetTopicScore(
+				category.topic
+			)
+
+			if score > 0 then
+
+				table.insert(TopicPredictions, {
+
+					Name = categoryName,
+					Score = score,
+					Keywords = matched,
+
+				})
+
+			end
+
+		end
+
+	end
+
+	table.sort(
+		TopicPredictions,
+		function(a, b)
+			return a.Score > b.Score
+		end
+	)
+
+	local BestTopic = TopicPredictions[1]
+	local BestSafetyTopic = SafetyMatches[1]
 
 	--------------------------------------------------
 	-- EMOTION SIMILARITY
@@ -1065,7 +1506,7 @@ local function NeuronFade(message, anger, happy, sad)
 			return 0.5
 		end
 
-		local inputNeutral = math.clamp(
+		local neutral = math.clamp(
 			1 - math.max(anger, happy, sad),
 			0,
 			1
@@ -1088,41 +1529,41 @@ local function NeuronFade(message, anger, happy, sad)
 				dimensions += 1
 
 			end
+
 		end
 
 		Compare("Anger", anger)
 		Compare("Happy", happy)
 		Compare("Sad", sad)
-		Compare("Neutral", inputNeutral)
+		Compare("Neutral", neutral)
 
 		if dimensions == 0 then
 			return 0.5
 		end
 
-		local totalDifference = 0
+		local total = 0
 
 		for _, difference in ipairs(differences) do
-			totalDifference += difference
+			total += difference
 		end
 
-		local averageDifference = totalDifference / dimensions
-
-		return math.clamp(1 - averageDifference, 0, 1)
+		return math.clamp(
+			1 - total / dimensions,
+			0,
+			1
+		)
 	end
 
 	--------------------------------------------------
 	-- SENTENCE SIMILARITY
-	-- EXACT WORDS ONLY
 	--------------------------------------------------
 
 	local function SentenceSimilarity(sentence)
 
 		local SentenceWords = Tokenize(sentence)
-
-		local inputCount = CountWords(InputWords)
 		local sentenceCount = CountWords(SentenceWords)
 
-		if inputCount == 0 or sentenceCount == 0 then
+		if InputCount == 0 or sentenceCount == 0 then
 			return 0
 		end
 
@@ -1136,7 +1577,7 @@ local function NeuronFade(message, anger, happy, sad)
 
 		end
 
-		local inputCoverage = matched / inputCount
+		local inputCoverage = matched / InputCount
 		local sentenceCoverage = matched / sentenceCount
 
 		return math.clamp(
@@ -1148,7 +1589,7 @@ local function NeuronFade(message, anger, happy, sad)
 	end
 
 	--------------------------------------------------
-	-- CANDIDATES
+	-- COLLECT PATHWAY CANDIDATES
 	--------------------------------------------------
 
 	local Candidates = {}
@@ -1156,39 +1597,44 @@ local function NeuronFade(message, anger, happy, sad)
 	local function AddCandidate(
 		sentence,
 		emotion,
-		source,
 		owner,
-		ownerKey
+		ownerKey,
+		category,
+		topicScore
 	)
 
-		if type(sentence) ~= "string" or sentence == "" then
+		if type(sentence) ~= "string"
+			or sentence == "" then
 			return
 		end
 
 		table.insert(Candidates, {
 
 			Sentence = sentence,
-
 			Emotion = emotion,
 
-			Source = source,
-
 			Owner = owner,
+			OwnerKey = ownerKey,
 
-			OwnerKey = ownerKey
+			Category = category,
+			TopicScore = topicScore or 0,
 
 		})
 
 	end
 
 	--------------------------------------------------
-	-- PATHWAY CONCEPTS
+	-- SEARCH ALL KNOWLEDGE PATHWAYS
 	--------------------------------------------------
 
 	for CategoryName, Category in pairs(Categories) do
 
 		if type(Category) == "table"
 			and type(Category.concepts) == "table" then
+
+			local CategoryTopicScore = GetTopicScore(
+				Category.topic
+			)
 
 			for _, Concept in ipairs(Category.concepts) do
 
@@ -1199,7 +1645,7 @@ local function NeuronFade(message, anger, happy, sad)
 						Anger = Concept.Anger,
 						Happy = Concept.Happy,
 						Sad = Concept.Sad,
-						Neutral = Concept.Neutral
+						Neutral = Concept.Neutral,
 
 					}
 
@@ -1214,86 +1660,32 @@ local function NeuronFade(message, anger, happy, sad)
 							AddCandidate(
 								definition,
 								Emotion,
-								CategoryName,
 								Concept,
-								conceptName
+								conceptName,
+								CategoryName,
+								CategoryTopicScore
 							)
 
 						end
 
 					end
-				end
-			end
-		end
-	end
-
-	--------------------------------------------------
-	-- MATCHED COMBINATIONS
-	-- THESE ARE COMPLETE PHRASES, NOT CLOSE MEANINGS
-	--------------------------------------------------
-
-	for word in pairs(InputWords) do
-
-		local combinations = MatchedCombinations[word]
-
-		if type(combinations) == "table" then
-
-			for _, sentence in ipairs(combinations) do
-
-				if type(sentence) == "string" then
-
-					AddCandidate(
-						sentence,
-						nil,
-						"MatchedCombination",
-						nil,
-						nil
-					)
 
 				end
 
 			end
+
 		end
+
 	end
 
 	--------------------------------------------------
-	-- EMOTION PATHWAYS
-	--------------------------------------------------
-
-	for EmotionName, EmotionCategory in pairs(EmotionPathways) do
-
-		if type(EmotionCategory) == "table" then
-
-			for _, Entry in ipairs(EmotionCategory) do
-
-				if type(Entry) == "table"
-					and type(Entry[1]) == "string" then
-
-					AddCandidate(
-						Entry[1],
-						{
-							Anger = Entry.Anger,
-							Happy = Entry.Happy,
-							Sad = Entry.Sad,
-							Neutral = Entry.Neutral
-						},
-						EmotionName,
-						Entry,
-						1
-					)
-
-				end
-
-			end
-		end
-	end
-
-	--------------------------------------------------
-	-- FIND BEST PATHWAY
+	-- SCORE ALL CANDIDATES
 	--------------------------------------------------
 
 	local BestCandidate = nil
 	local BestScore = -1
+
+	local MatchedCandidates = {}
 
 	for _, Candidate in ipairs(Candidates) do
 
@@ -1305,13 +1697,32 @@ local function NeuronFade(message, anger, happy, sad)
 			Candidate.Emotion
 		)
 
-		local FinalScore =
-			(ConceptScore * CONCEPT_WEIGHT) +
-			(EmotionScore * EMOTION_WEIGHT)
+		local FinalScore
+
+		if Candidate.TopicScore > 0 then
+
+			FinalScore =
+				(ConceptScore * CONCEPT_WEIGHT) +
+				(EmotionScore * EMOTION_WEIGHT) +
+				(Candidate.TopicScore * TOPIC_WEIGHT)
+
+		else
+
+			-- Don't penalize pathways that have no topic field.
+
+			FinalScore =
+				(ConceptScore * 0.65) +
+				(EmotionScore * 0.35)
+
+		end
 
 		Candidate.ConceptScore = ConceptScore
 		Candidate.EmotionScore = EmotionScore
 		Candidate.FinalScore = FinalScore
+
+		--------------------------------------------------
+		-- BEST CANDIDATE
+		--------------------------------------------------
 
 		if FinalScore >= MINIMUM_SCORE
 			and FinalScore > BestScore then
@@ -1321,11 +1732,113 @@ local function NeuronFade(message, anger, happy, sad)
 
 		end
 
+		--------------------------------------------------
+		-- RELATED CANDIDATES
+		--------------------------------------------------
+
+		if ConceptScore >= MIN_CONCEPT_MATCH
+			and FinalScore >= MINIMUM_SCORE then
+
+			table.insert(
+				MatchedCandidates,
+				Candidate
+			)
+
+		end
+
 	end
 
 	--------------------------------------------------
-	-- NEURON FORGETTING
-	-- REWRITE ONLY THE SELECTED STORED PATHWAY
+	-- SORT CANDIDATES
+	--------------------------------------------------
+
+	table.sort(
+		MatchedCandidates,
+		function(a, b)
+			return a.FinalScore > b.FinalScore
+		end
+	)
+
+	--------------------------------------------------
+	-- REMOVE DUPLICATES
+	--------------------------------------------------
+
+	local UniqueCandidates = {}
+	local SeenSentences = {}
+
+	for _, Candidate in ipairs(MatchedCandidates) do
+
+		local Normalized = Normalize(
+			Candidate.Sentence:gsub("[%p]", "")
+		)
+
+		if not SeenSentences[Normalized] then
+
+			SeenSentences[Normalized] = true
+
+			table.insert(
+				UniqueCandidates,
+				Candidate
+			)
+
+		end
+
+		if #UniqueCandidates >= MAX_COMBINED_SENTENCES then
+			break
+		end
+
+	end
+
+	--------------------------------------------------
+	-- RECONSTRUCT RESPONSE
+	--------------------------------------------------
+
+	local function MakeReadable(text)
+
+		text = text:gsub("^%s+", "")
+		text = text:gsub("%s+$", "")
+
+		if text == "" then
+			return ""
+		end
+
+		text = string.upper(
+			string.sub(text, 1, 1)
+		) .. string.sub(text, 2)
+
+		if not text:match("[%.%!%?]$") then
+			text ..= "."
+		end
+
+		return text
+	end
+
+	local CombinedSentences = {}
+
+	for _, Candidate in ipairs(UniqueCandidates) do
+
+		local Sentence = MakeReadable(
+			Candidate.Sentence
+		)
+
+		if Sentence ~= "" then
+
+			table.insert(
+				CombinedSentences,
+				Sentence
+			)
+
+		end
+
+	end
+
+	local ReconstructedResponse = table.concat(
+		CombinedSentences,
+		" "
+	)
+
+	--------------------------------------------------
+	-- NEURON FADING / FORGETTING
 	--------------------------------------------------
 
 	if BestCandidate
@@ -1337,7 +1850,8 @@ local function NeuronFade(message, anger, happy, sad)
 
 		local OriginalDefinition = Owner[OwnerKey]
 
-		if type(OriginalDefinition) == "string" then
+		if type(OriginalDefinition) == "string"
+			and math.random() <= FORGET_RATE then
 
 			local EligibleWords = {}
 
@@ -1347,111 +1861,217 @@ local function NeuronFade(message, anger, happy, sad)
 				string.lower(word)
 				]
 
-				if type(alternatives) == "table"
-					and #alternatives > 0 then
+				if type(alternatives) == "table" then
 
-					table.insert(EligibleWords, word)
+					local ValidAlternatives = {}
+
+					for _, alternative in ipairs(alternatives) do
+
+						if type(alternative) == "string"
+							and alternative ~= ""
+							and string.lower(alternative) ~= string.lower(word) then
+
+							table.insert(
+								ValidAlternatives,
+								alternative
+							)
+
+						end
+
+					end
+
+					if #ValidAlternatives > 0 then
+
+						table.insert(EligibleWords, {
+
+							Original = word,
+							Alternatives = ValidAlternatives,
+
+						})
+
+					end
 
 				end
 
 			end
 
-			-- Only occasionally forget a word.
+			if #EligibleWords > 0 then
 
-			if #EligibleWords > 0
-				and math.random() <= FORGET_RATE then
-
-				local SelectedWord = EligibleWords[
+				local Selected = EligibleWords[
 				math.random(1, #EligibleWords)
 				]
 
-				local Alternatives = CloseMeanings[
-				string.lower(SelectedWord)
+				local Replacement = Selected.Alternatives[
+				math.random(1, #Selected.Alternatives)
 				]
 
-				local Replacement = Alternatives[
-				math.random(1, #Alternatives)
-				]
+				local Replaced = false
 
-				if type(Replacement) == "string"
-					and Replacement ~= "" then
+				local NewDefinition = OriginalDefinition:gsub(
+					"[%w']+",
+					function(word)
 
-					local Replaced = false
+						if not Replaced
+							and string.lower(word)
+							== string.lower(Selected.Original) then
 
-					local NewDefinition = OriginalDefinition:gsub(
-						"[%w']+",
-						function(word)
+							Replaced = true
 
-							if not Replaced
-								and string.lower(word)
-								== string.lower(SelectedWord) then
-
-								Replaced = true
-
-								return Replacement
-							end
-
-							return word
-
+							return Replacement
 						end
-					)
 
-					if Replaced then
-
-						Owner[OwnerKey] = NewDefinition
-
-						print(
-							"[ZINC FORGETTING]",
-							OriginalDefinition,
-							"->",
-							NewDefinition
-						)
+						return word
 
 					end
+				)
+
+				if Replaced then
+
+					Owner[OwnerKey] = NewDefinition
+
+					print(
+						"[ZINC NEURON FADE]",
+						OriginalDefinition,
+						"->",
+						NewDefinition
+					)
+
 				end
+
 			end
+
 		end
+
 	end
 
 	--------------------------------------------------
-	-- RETURN COMPLETE PATHWAY SENTENCE
+	-- PREDICTION METADATA
+	--------------------------------------------------
+
+	local Metadata = {
+
+		Confidence = math.max(BestScore, 0),
+
+		Context = Context,
+
+		Topic = BestTopic and BestTopic.Name or nil,
+
+		TopicScore = BestTopic and BestTopic.Score or 0,
+
+		SafetyDetected = BestSafetyTopic ~= nil,
+
+		SafetyTopic = BestSafetyTopic
+			and BestSafetyTopic.Name or nil,
+
+		SafetyPriority = BestSafetyTopic
+			and BestSafetyTopic.Priority or 0,
+
+		SafetyKeywords = BestSafetyTopic
+			and BestSafetyTopic.Keywords or {},
+
+		PersonalContext = Context.Personal,
+
+		QuestionContext = Context.Question,
+
+		EducationalContext = Context.Educational,
+
+		FictionalContext = Context.Fictional,
+
+		PreventionContext = Context.Prevention,
+
+		SafetyResponseEnabled = false,
+
+	}
+
+	--------------------------------------------------
+	-- NO MATCH
 	--------------------------------------------------
 
 	if not BestCandidate then
 
-		return "I don't know that.", 0, {
-			Confidence = 0,
-			MinimumScore = MINIMUM_SCORE
-		}
+		Metadata.Confidence = 0
+		Metadata.Reconstructed = false
+		Metadata.CombinedSentences = 0
+
+		return "I don't know that.", 0, Metadata
 
 	end
 
-	local OutputSentence = BestCandidate.Sentence
+	--------------------------------------------------
+	-- FINAL RESPONSE
+	--------------------------------------------------
+
+	local OutputSentence = ReconstructedResponse
+
+	if OutputSentence == "" then
+		OutputSentence = BestCandidate.Sentence
+	end
+
+	--------------------------------------------------
+	-- DEBUG OUTPUT
+	--------------------------------------------------
 
 	print("========== ZINC NEURON ==========")
+
 	print("Input:", message)
+
 	print("Response:", OutputSentence)
-	print("Pathway:", BestCandidate.Source)
-	print("Sentence Match:", BestCandidate.ConceptScore)
-	print("Emotion Match:", BestCandidate.EmotionScore)
+
+	print("Best Pathway:", BestCandidate.Category)
+
+	print("Best Concept:", BestCandidate.OwnerKey)
+
+	print("Concept Score:", BestCandidate.ConceptScore)
+
+	print("Emotion Score:", BestCandidate.EmotionScore)
+
 	print("Final Score:", BestCandidate.FinalScore)
+
+	print("Predicted Topic:", Metadata.Topic)
+
+	print("Topic Score:", Metadata.TopicScore)
+
+	print("Safety Detected:", Metadata.SafetyDetected)
+
+	print("Safety Topic:", Metadata.SafetyTopic)
+
+	print("Personal Context:", Context.Personal)
+
+	print("Question Context:", Context.Question)
+
+	print("Educational Context:", Context.Educational)
+
+	print("Fictional Context:", Context.Fictional)
+
+	print("Prevention Context:", Context.Prevention)
+
+	print("Combined Sentences:", #UniqueCandidates)
+
 	print("=================================")
 
-	return OutputSentence, BestCandidate.FinalScore * 100, {
+	--------------------------------------------------
+	-- RETURN
+	--------------------------------------------------
 
-		Sentence = OutputSentence,
+	Metadata.Sentence = OutputSentence
 
-		Category = BestCandidate.Source,
+	Metadata.Category = BestCandidate.Category
+	Metadata.Concept = BestCandidate.OwnerKey
 
-		ConceptScore = BestCandidate.ConceptScore,
+	Metadata.ConceptScore = BestCandidate.ConceptScore
+	Metadata.EmotionScore = BestCandidate.EmotionScore
 
-		EmotionScore = BestCandidate.EmotionScore,
+	Metadata.FinalScore = BestCandidate.FinalScore
 
-		FinalScore = BestCandidate.FinalScore
+	Metadata.CombinedSentences = #UniqueCandidates
 
-	}
+	Metadata.Reconstructed = #UniqueCandidates > 1
+
+	return OutputSentence, BestCandidate.FinalScore * 100, Metadata
 
 end
+
+
 
 
 local function EmotionHandling(message)
@@ -1515,7 +2135,10 @@ local function EmotionHandling(message)
 	NeuronFade(message, Emotions.Anger, Emotions.Happy, Emotions.Sad)
 end
 
+local storedmessages = {}
 
 game.Players.LocalPlayer.Chatted:Connect(function(msg)
+
 	EmotionHandling(msg)
+
 end)
